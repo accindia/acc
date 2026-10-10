@@ -1,0 +1,4456 @@
+import React, { useState, useEffect } from 'react';
+import {
+  ShieldCheck,
+  Users,
+  CreditCard,
+  Download,
+  Upload,
+  RefreshCw,
+  Search,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  ExternalLink,
+  MessageCircle,
+  TrendingUp,
+  FileSpreadsheet,
+  Eye,
+  Key,
+  Lock,
+  Send,
+  Share2,
+  Check,
+  Mail,
+  Smartphone,
+  Copy,
+  Image as ImageIcon,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  X,
+  Phone,
+  PlusCircle,
+  Trash2,
+  Edit3,
+  Sliders,
+  Plus,
+  RotateCcw,
+  Sparkles,
+  Zap,
+  BookOpen,
+  Layers,
+  Globe,
+  MapPin,
+  Building2,
+  Tag,
+  Radio,
+  FileText,
+  CheckCircle,
+  HelpCircle,
+  Wallet,
+  DollarSign,
+  UserCheck,
+  KeyRound,
+  Printer,
+} from 'lucide-react';
+import { Member, PlanType, VerificationStatus, WithdrawalRequest, AppServiceItem, PromotionalPoster, SiteConfig } from '../types';
+import { StorageService, subscribeToSync, SEED_MEMBERS } from '../services/storage';
+import { FirestoreService } from '../services/firestore';
+
+interface AdminPanelProps {
+  onRefresh: () => void;
+}
+
+export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefresh }) => {
+  // Admin password gate state - Secured with storage password (Default: ACCADMIN)
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(() => {
+    return sessionStorage.getItem('acc_admin_authenticated') === 'true';
+  });
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [adminPasswordError, setAdminPasswordError] = useState('');
+
+  // Main Admin Navigation Tab
+  const [adminTab, setAdminTab] = useState<'members' | 'form_responses' | 'withdrawals' | 'website_cms'>('members');
+  const [formResponseModalMember, setFormResponseModalMember] = useState<Member | null>(null);
+
+  const [members, setMembers] = useState<Member[]>(StorageService.getMembers());
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>(StorageService.getWithdrawals());
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => StorageService.getSiteConfig());
+
+  // Contact & Helpline settings form
+  const [helplinePhoneInput, setHelplinePhoneInput] = useState(siteConfig.helplinePhone || '+91 8877490845');
+  const [whatsappNumberInput, setWhatsappNumberInput] = useState(siteConfig.whatsappNumber || '+91 8877490845');
+  const [officialEmailInput, setOfficialEmailInput] = useState(siteConfig.officialEmail || 'santosh09patidar@gmail.com');
+  const [telegramLinkInput, setTelegramLinkInput] = useState(siteConfig.telegramLink || 'https://t.me/achieversclub');
+  const [showCallToggle, setShowCallToggle] = useState<boolean>(siteConfig.showHelplineCallButton !== false);
+  const [showWhatsAppToggle, setShowWhatsAppToggle] = useState<boolean>(siteConfig.showHelplineWhatsAppButton !== false);
+
+  // Address & Legal settings form
+  const [officialAddressInput, setOfficialAddressInput] = useState(siteConfig.officialAddress || 'Scheme No. 54, Vijay Nagar, Indore, Madhya Pradesh - 452001');
+  const [websiteUrlInput, setWebsiteUrlInput] = useState(siteConfig.websiteUrl || 'accindia.js.org');
+  const [adminSignatoryNameInput, setAdminSignatoryNameInput] = useState(siteConfig.adminSignatoryName || 'Vikas Kumar');
+  const [adminSignatoryTitleInput, setAdminSignatoryTitleInput] = useState(siteConfig.adminSignatoryTitle || 'Chief Community Administrator');
+  const [activationFeeInput, setActivationFeeInput] = useState<number>(siteConfig.activationFee || 249);
+  const [upiIdInput, setUpiIdInput] = useState(siteConfig.upiId || '8877490845@spicepay');
+  const [upiReceiverNameInput, setUpiReceiverNameInput] = useState(siteConfig.upiReceiverName || 'Vikas Kumar');
+
+  // Announcement Marquee
+  const [marqueeInput, setMarqueeInput] = useState(siteConfig.announcementMarquee || '');
+
+  // Add/Edit Service Modal State
+  const [showServiceModal, setShowServiceModal] = useState<boolean>(false);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [serviceTitleInput, setServiceTitleInput] = useState('');
+  const [serviceCategoryInput, setServiceCategoryInput] = useState<'RECHARGE' | 'REFERRAL' | 'COMMUNITY' | 'UTILITY' | 'EXTRA'>('RECHARGE');
+  const [serviceDescriptionInput, setServiceDescriptionInput] = useState('');
+  const [serviceCommissionInput, setServiceCommissionInput] = useState('');
+  const [serviceBadgeInput, setServiceBadgeInput] = useState('');
+  const [serviceIconInput, setServiceIconInput] = useState('Zap');
+  const [serviceActionTextInput, setServiceActionTextInput] = useState('ज्वाइन करें');
+  const [serviceActionLinkInput, setServiceActionLinkInput] = useState('register');
+  const [serviceIsActiveInput, setServiceIsActiveInput] = useState(true);
+
+  // Add/Edit Poster Modal State
+  const [showPosterModal, setShowPosterModal] = useState<boolean>(false);
+  const [editingPosterId, setEditingPosterId] = useState<string | null>(null);
+  const [posterTitleInput, setPosterTitleInput] = useState('');
+  const [posterSubtitleInput, setPosterSubtitleInput] = useState('');
+  const [posterImageUrlInput, setPosterImageUrlInput] = useState('');
+  const [posterBadgeInput, setPosterBadgeInput] = useState('');
+  const [posterCtaTextInput, setPosterCtaTextInput] = useState('अभी रजिस्टर करें (₹249)');
+  const [posterCtaLinkInput, setPosterCtaLinkInput] = useState('register');
+  const [posterIsActiveInput, setPosterIsActiveInput] = useState(true);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterPlan, setFilterPlan] = useState<'ALL' | PlanType>('ALL');
+  const [filterStatus, setFilterStatus] = useState<'ALL' | VerificationStatus>('ALL');
+  const [filterSponsor, setFilterSponsor] = useState<'ALL' | 'WITH_SPONSOR' | 'COMMISSION_PENDING' | 'COMMISSION_PAID' | 'DIRECT'>('ALL');
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [actionSuccess, setActionSuccess] = useState('');
+
+  // Commission Payout Modal State
+  const [commissionPayMember, setCommissionPayMember] = useState<Member | null>(null);
+  const [commissionUtrInput, setCommissionUtrInput] = useState('');
+
+  // Member Security & Password Reset Support Modal State (Admin tool for users who forgot security answer)
+  const [memberSecurityModal, setMemberSecurityModal] = useState<Member | null>(null);
+  const [memberNewPasswordInput, setMemberNewPasswordInput] = useState('');
+  const [memberSecurityMsg, setMemberSecurityMsg] = useState('');
+
+  // Real-time Firestore sync on mount & when unlocked
+  useEffect(() => {
+    // 1. Initial background sync with Firestore
+    refreshData();
+
+    // 2. Real-time Firestore snapshot listener for instant multi-device updates
+    const unsubscribeMembers = FirestoreService.subscribeToMembers((cloudMembers) => {
+      if (cloudMembers && cloudMembers.length > 0) {
+        const mergedMap = new Map<string, Member>();
+        // Add existing local & seed
+        StorageService.getMembers().forEach((m) => {
+          if (m && (m.accId || m.id)) {
+            mergedMap.set((m.accId || m.id).toUpperCase(), m);
+          }
+        });
+        // Overwrite with cloud authoritative members
+        cloudMembers.forEach((m) => {
+          if (m && (m.accId || m.id)) {
+            mergedMap.set((m.accId || m.id).toUpperCase(), m);
+          }
+        });
+        const combined = Array.from(mergedMap.values());
+        combined.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        setMembers(combined);
+        StorageService.saveMembers(combined);
+      }
+    });
+
+    // 3. Real-time Firestore listener for withdrawals
+    const unsubscribeWithdrawals = FirestoreService.subscribeToWithdrawals((cloudWds) => {
+      if (cloudWds && cloudWds.length > 0) {
+        setWithdrawals(cloudWds);
+        StorageService.saveWithdrawals(cloudWds);
+      }
+    });
+
+    // 4. Real-time site config listener
+    const unsubscribeSiteConfig = FirestoreService.subscribeToSiteConfig((cloudCfg) => {
+      if (cloudCfg) {
+        setSiteConfig(cloudCfg);
+        StorageService.saveSiteConfig(cloudCfg);
+      }
+    });
+
+    // 5. Tab / local sync
+    const unsubscribeSync = subscribeToSync(() => {
+      setMembers(StorageService.getMembers());
+      setWithdrawals(StorageService.getWithdrawals());
+      setSiteConfig(StorageService.getSiteConfig());
+    });
+
+    return () => {
+      unsubscribeMembers();
+      unsubscribeWithdrawals();
+      unsubscribeSiteConfig();
+      unsubscribeSync();
+    };
+  }, []);
+
+  // Screenshot Preview & Verification Modal State
+  const [screenshotModalMember, setScreenshotModalMember] = useState<Member | null>(null);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+
+  // Rejection Dialog State
+  const [rejectionModalMember, setRejectionModalMember] = useState<Member | null>(null);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState<string>('अमान्य या गलत UPI UTR नंबर');
+  const [customReasonText, setCustomReasonText] = useState<string>('');
+
+  // Modal for sharing Real App Link to approved user
+  const [linkModalMember, setLinkModalMember] = useState<Member | null>(null);
+  const [customAppLink, setCustomAppLink] = useState('https://achieversclub.in/download/acc-official-v2.apk');
+  const [linkShareSuccess, setLinkShareSuccess] = useState('');
+
+  // Change Admin Password Modal
+  const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
+  const [currentPassInput, setCurrentPassInput] = useState('');
+  const [newPassInput, setNewPassInput] = useState('');
+  const [passwordModalMsg, setPasswordModalMsg] = useState('');
+  const [passwordModalError, setPasswordModalError] = useState('');
+
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const correctPassword = StorageService.getAdminPassword();
+    if (adminPasswordInput.trim() === correctPassword) {
+      setIsAdminUnlocked(true);
+      sessionStorage.setItem('acc_admin_authenticated', 'true');
+      setAdminPasswordError('');
+      setAdminPasswordInput('');
+      refreshData();
+    } else {
+      setAdminPasswordError('अमान्य एडमिन पासवर्ड! पहुँच अस्वीकृत। कृपया सही गुप्त पासवर्ड दर्ज करें।');
+    }
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdminUnlocked(false);
+    sessionStorage.removeItem('acc_admin_authenticated');
+    setAdminPasswordInput('');
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordModalError('');
+    setPasswordModalMsg('');
+
+    const correctPassword = StorageService.getAdminPassword();
+    if (currentPassInput.trim() !== correctPassword) {
+      setPasswordModalError('वर्तमान एडमिन पासवर्ड गलत है!');
+      return;
+    }
+
+    if (newPassInput.trim().length < 6) {
+      setPasswordModalError('नया पासवर्ड कम से कम 6 अक्षरों का होना चाहिए!');
+      return;
+    }
+
+    StorageService.setAdminPassword(newPassInput.trim());
+    setPasswordModalMsg('एडमिन सुरक्षा पासवर्ड सफलतापूर्वक बदल दिया गया!');
+    setCurrentPassInput('');
+    setNewPassInput('');
+    setTimeout(() => {
+      setShowPasswordModal(false);
+      setPasswordModalMsg('');
+    }, 2000);
+  };
+
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+
+  const refreshData = async () => {
+    setIsCloudSyncing(true);
+    try {
+      const cloudMembers = await FirestoreService.getMembers();
+      if (cloudMembers && cloudMembers.length > 0) {
+        const mergedMap = new Map<string, Member>();
+        StorageService.getMembers().forEach((m) => {
+          if (m && (m.accId || m.id)) {
+            mergedMap.set((m.accId || m.id).toUpperCase(), m);
+          }
+        });
+        cloudMembers.forEach((m) => {
+          if (m && (m.accId || m.id)) {
+            mergedMap.set((m.accId || m.id).toUpperCase(), m);
+          }
+        });
+        const combined = Array.from(mergedMap.values());
+        combined.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        setMembers(combined);
+        StorageService.saveMembers(combined);
+      } else {
+        setMembers(StorageService.getMembers());
+      }
+
+      const cloudWds = await FirestoreService.getWithdrawals();
+      if (cloudWds && cloudWds.length > 0) {
+        setWithdrawals(cloudWds);
+        StorageService.saveWithdrawals(cloudWds);
+      } else {
+        setWithdrawals(StorageService.getWithdrawals());
+      }
+      setActionSuccess('क्लाउड डेटाबेस (Firestore) से ताज़ा यूजर रिकॉर्ड लोड हो गए!');
+      setTimeout(() => setActionSuccess(''), 3000);
+    } catch (e) {
+      console.warn('refreshData error:', e);
+      setMembers(StorageService.getMembers());
+      setWithdrawals(StorageService.getWithdrawals());
+    } finally {
+      setIsCloudSyncing(false);
+      onRefresh();
+    }
+  };
+
+  const handleToggleActive = (member: Member) => {
+    StorageService.updateMember(member.accId, { isActive: !member.isActive });
+    refreshData();
+    setActionSuccess(`सदस्य ${member.accId} की सक्रियता स्थिति अपडेट की गई।`);
+    setTimeout(() => setActionSuccess(''), 2500);
+  };
+
+  // Direct 1-Click Approve Member
+  const handleApproveMember = (member: Member) => {
+    const defaultLink = 'https://achieversclub.in/download/acc-official-v2.apk';
+    StorageService.approveMember(member.accId, defaultLink);
+    refreshData();
+    setActionSuccess(`सदस्य ${member.fullName} (${member.accId}) का ₹249 भुगतान स्वीकृत व 🆔 सत्यापित हो गई!`);
+    
+    // Update active modal member if open
+    if (screenshotModalMember && screenshotModalMember.accId === member.accId) {
+      setScreenshotModalMember({
+        ...screenshotModalMember,
+        status: 'verified',
+        verifiedAt: new Date().toISOString(),
+        realAppLinkApproved: true,
+        realAppLink: defaultLink,
+      });
+    }
+    setTimeout(() => setActionSuccess(''), 3500);
+  };
+
+  // Trigger Reject Modal
+  const handleOpenRejectModal = (member: Member) => {
+    setRejectionModalMember(member);
+    setRejectionReasonInput('अमान्य या गलत UPI UTR नंबर');
+    setCustomReasonText('');
+  };
+
+  // Confirm Rejection with Reason
+  const handleConfirmReject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectionModalMember) return;
+
+    const finalReason = rejectionReasonInput === 'अन्य कारण (Custom)' 
+      ? (customReasonText.trim() || 'एडमिन द्वारा अस्वीकृत: अमान्य भुगतान विवरण')
+      : rejectionReasonInput;
+
+    StorageService.rejectMember(rejectionModalMember.accId, finalReason);
+    refreshData();
+
+    if (screenshotModalMember && screenshotModalMember.accId === rejectionModalMember.accId) {
+      setScreenshotModalMember({
+        ...screenshotModalMember,
+        status: 'rejected',
+        realAppLinkApproved: false,
+        rejectionReason: finalReason,
+      });
+    }
+
+    setActionSuccess(`सदस्य ${rejectionModalMember.accId} का आवेदन अस्वीकृत किया गया (कारण: ${finalReason})।`);
+    setRejectionModalMember(null);
+    setTimeout(() => setActionSuccess(''), 3500);
+  };
+
+  // Admin approves real app link for verified user
+  const handleApproveAndSendAppLink = (member: Member) => {
+    StorageService.updateMember(member.accId, {
+      realAppLink: customAppLink.trim(),
+      realAppLinkApproved: true,
+    });
+    refreshData();
+    setLinkShareSuccess(`Real App Link सदस्य ${member.accId} के खाते में सफलतापूर्वक लिंक हो गया!`);
+    setTimeout(() => {
+      setLinkShareSuccess('');
+      setLinkModalMember(null);
+    }, 2000);
+  };
+
+  // Commission Payment Confirmation Handler
+  const handleConfirmCommissionPay = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commissionPayMember) return;
+    const utr = commissionUtrInput.trim() || `COMM-${Date.now().toString().slice(-8)}`;
+    StorageService.markCommissionPaid(commissionPayMember.accId, utr);
+    FirestoreService.updateMember(commissionPayMember.accId, {
+      sponsorCommissionStatus: 'paid',
+      sponsorCommissionPaidAt: new Date().toISOString(),
+      sponsorCommissionUtr: utr,
+      sponsorCommissionAmount: 150,
+    });
+
+    if (screenshotModalMember && screenshotModalMember.accId === commissionPayMember.accId) {
+      setScreenshotModalMember({
+        ...screenshotModalMember,
+        sponsorCommissionStatus: 'paid',
+        sponsorCommissionPaidAt: new Date().toISOString(),
+        sponsorCommissionUtr: utr,
+        sponsorCommissionAmount: 150,
+      });
+    }
+
+    if (selectedMember && selectedMember.accId === commissionPayMember.accId) {
+      setSelectedMember({
+        ...selectedMember,
+        sponsorCommissionStatus: 'paid',
+        sponsorCommissionPaidAt: new Date().toISOString(),
+        sponsorCommissionUtr: utr,
+        sponsorCommissionAmount: 150,
+      });
+    }
+
+    refreshData();
+    setActionSuccess(`स्पॉन्सर (${commissionPayMember.sponsorId}) को ₹150 कमीशन भुगतान दर्ज हो गया (UTR: ${utr})!`);
+    setCommissionPayMember(null);
+    setCommissionUtrInput('');
+    setTimeout(() => setActionSuccess(''), 3500);
+  };
+
+  // Admin Reset Member Password Handler
+  const handleAdminResetMemberPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!memberSecurityModal) return;
+    const newPass = memberNewPasswordInput.trim();
+    if (!newPass || newPass.length < 4) {
+      setMemberSecurityMsg('नया पासवर्ड कम से कम 4 अक्षरों का होना चाहिए!');
+      return;
+    }
+
+    StorageService.updateMember(memberSecurityModal.accId, { password: newPass });
+    FirestoreService.updateMember(memberSecurityModal.accId, { password: newPass });
+    refreshData();
+    setMemberSecurityMsg(`✓ सदस्य का पासवर्ड सफलतापूर्वक रीसेट हो गया: ${newPass}`);
+    setActionSuccess(`सदस्य ${memberSecurityModal.accId} का नया पासवर्ड सेट हो गया!`);
+    setTimeout(() => {
+      setMemberSecurityMsg('');
+    }, 3500);
+  };
+
+  const handleApproveWithdrawal = (id: string) => {
+    StorageService.approveWithdrawal(id);
+    refreshData();
+    setActionSuccess('निकासी अनुरोध स्वीकृत किया गया। राशि सदस्य को प्रेषित!');
+    setTimeout(() => setActionSuccess(''), 2500);
+  };
+
+  const handleRejectWithdrawal = (id: string) => {
+    StorageService.rejectWithdrawal(id, 'एडमिन द्वारा अस्वीकृत');
+    refreshData();
+    setActionSuccess('निकासी अनुरोध अस्वीकृत किया गया। वॉलेट में राशि वापस की गई।');
+    setTimeout(() => setActionSuccess(''), 2500);
+  };
+
+  const handleExport = () => {
+    const dataStr = StorageService.exportDatabase();
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `acc_database_backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target?.result as string;
+        if (StorageService.importDatabase(content)) {
+          refreshData();
+          alert('डेटाबेस सफलतापूर्वक रीस्टोर / इम्पोर्ट हो गया!');
+        } else {
+          alert('अमान्य बैकअप फ़ाइल!');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const handleResetData = () => {
+    if (window.confirm('क्या आप सचमुच डेटाबेस को डिफ़ॉल्ट डेमो डेटा पर रीसेट करना चाहते हैं?')) {
+      StorageService.resetAllData();
+      refreshData();
+      alert('डेटाबेस रीसेट हो गया!');
+    }
+  };
+
+  // CMS Handlers
+  const handleSaveContactSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updated = StorageService.updateSiteConfig({
+      helplinePhone: helplinePhoneInput.trim(),
+      whatsappNumber: whatsappNumberInput.trim(),
+      officialEmail: officialEmailInput.trim(),
+      telegramLink: telegramLinkInput.trim(),
+      showHelplineCallButton: showCallToggle,
+      showHelplineWhatsAppButton: showWhatsAppToggle,
+    });
+    setSiteConfig(updated);
+    setActionSuccess('हेल्पलाइन व संपर्क बटन सेटिंग्स सफलतापूर्वक अपडेट व सुरक्षित हो गईं!');
+    setTimeout(() => setActionSuccess(''), 3000);
+  };
+
+  const handleSaveAddressSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updated = StorageService.updateSiteConfig({
+      officialAddress: officialAddressInput.trim(),
+      websiteUrl: websiteUrlInput.trim(),
+      adminSignatoryName: adminSignatoryNameInput.trim(),
+      adminSignatoryTitle: adminSignatoryTitleInput.trim(),
+      activationFee: Number(activationFeeInput) || 249,
+      upiId: upiIdInput.trim(),
+      upiReceiverName: upiReceiverNameInput.trim(),
+    });
+    setSiteConfig(updated);
+    setActionSuccess('कार्यालय पता, संस्था विवरण व UPI QR सेटिंग्स सफलतापूर्वक सुरक्षित हो गईं!');
+    setTimeout(() => setActionSuccess(''), 3000);
+  };
+
+  const handleSaveAnnouncement = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updated = StorageService.updateSiteConfig({
+      announcementMarquee: marqueeInput.trim(),
+    });
+    setSiteConfig(updated);
+    setActionSuccess('वेबसाइट स्क्रॉलिंग नोटिस सफलतापूर्वक अपडेट हो गया!');
+    setTimeout(() => setActionSuccess(''), 3000);
+  };
+
+  const handleOpenAddServiceModal = () => {
+    setEditingServiceId(null);
+    setServiceTitleInput('');
+    setServiceCategoryInput('RECHARGE');
+    setServiceDescriptionInput('');
+    setServiceCommissionInput('3.30% फिक्स्ड कमीशन');
+    setServiceBadgeInput('NEW');
+    setServiceIconInput('Zap');
+    setServiceActionTextInput('ज्वाइन करें');
+    setServiceActionLinkInput('register');
+    setServiceIsActiveInput(true);
+    setShowServiceModal(true);
+  };
+
+  const handleOpenEditServiceModal = (svc: AppServiceItem) => {
+    setEditingServiceId(svc.id);
+    setServiceTitleInput(svc.title);
+    setServiceCategoryInput(svc.category);
+    setServiceDescriptionInput(svc.description);
+    setServiceCommissionInput(svc.commissionOrEarning);
+    setServiceBadgeInput(svc.badgeText || '');
+    setServiceIconInput(svc.iconName || 'Zap');
+    setServiceActionTextInput(svc.actionText);
+    setServiceActionLinkInput(svc.actionLink || 'register');
+    setServiceIsActiveInput(svc.isActive);
+    setShowServiceModal(true);
+  };
+
+  const handleSaveService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!serviceTitleInput.trim()) return;
+
+    const newService: AppServiceItem = {
+      id: editingServiceId || `srv-${Date.now()}`,
+      title: serviceTitleInput.trim(),
+      category: serviceCategoryInput,
+      description: serviceDescriptionInput.trim(),
+      commissionOrEarning: serviceCommissionInput.trim() || 'कमीशन लागू',
+      badgeText: serviceBadgeInput.trim() || undefined,
+      iconName: serviceIconInput,
+      actionText: serviceActionTextInput.trim() || 'ज्वाइन करें',
+      actionLink: serviceActionLinkInput.trim() || 'register',
+      isActive: serviceIsActiveInput,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+
+    let updated: SiteConfig;
+    if (editingServiceId) {
+      updated = StorageService.updateService(editingServiceId, newService);
+    } else {
+      updated = StorageService.addService(newService);
+    }
+    setSiteConfig(updated);
+    setShowServiceModal(false);
+    setEditingServiceId(null);
+    setActionSuccess(editingServiceId ? 'सर्विस सफलतापूर्वक अपडेट हो गई!' : 'नई सर्विस सफलतापूर्वक वेबसाइट में जुड़ गई!');
+    setTimeout(() => setActionSuccess(''), 3000);
+  };
+
+  const handleDeleteService = (serviceId: string, serviceTitle: string) => {
+    if (window.confirm(`क्या आप सचमुच "${serviceTitle}" सर्विस को हटाना / डिलीट करना चाहते हैं?`)) {
+      const updated = StorageService.removeService(serviceId);
+      setSiteConfig(updated);
+      setActionSuccess(`सर्विस "${serviceTitle}" सफलतापूर्वक डिलीट / रिमूव कर दी गई!`);
+      setTimeout(() => setActionSuccess(''), 3000);
+    }
+  };
+
+  const handleToggleServiceActive = (serviceId: string) => {
+    const current = siteConfig.services.find((s) => s.id === serviceId);
+    if (!current) return;
+    const updated = StorageService.updateService(serviceId, { isActive: !current.isActive });
+    setSiteConfig(updated);
+    setActionSuccess(`सर्विस स्थिति ${!current.isActive ? 'सक्रिय' : 'निष्क्रिय'} की गई।`);
+    setTimeout(() => setActionSuccess(''), 2500);
+  };
+
+  const handleOpenAddPosterModal = () => {
+    setEditingPosterId(null);
+    setPosterTitleInput('');
+    setPosterSubtitleInput('');
+    setPosterImageUrlInput('');
+    setPosterBadgeInput('SPECIAL OFFER');
+    setPosterCtaTextInput('अभी रजिस्टर करें (₹249)');
+    setPosterCtaLinkInput('register');
+    setPosterIsActiveInput(true);
+    setShowPosterModal(true);
+  };
+
+  const handleOpenEditPosterModal = (poster: PromotionalPoster) => {
+    setEditingPosterId(poster.id);
+    setPosterTitleInput(poster.title);
+    setPosterSubtitleInput(poster.subtitle || '');
+    setPosterImageUrlInput(poster.imageUrl || '');
+    setPosterBadgeInput(poster.badge || '');
+    setPosterCtaTextInput(poster.ctaText || 'अभी देखें');
+    setPosterCtaLinkInput(poster.ctaLink || 'register');
+    setPosterIsActiveInput(poster.isActive);
+    setShowPosterModal(true);
+  };
+
+  const handleSavePoster = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!posterTitleInput.trim()) return;
+
+    const newPoster: PromotionalPoster = {
+      id: editingPosterId || `poster-${Date.now()}`,
+      title: posterTitleInput.trim(),
+      subtitle: posterSubtitleInput.trim() || undefined,
+      imageUrl: posterImageUrlInput.trim() || undefined,
+      badge: posterBadgeInput.trim() || undefined,
+      ctaText: posterCtaTextInput.trim() || 'अभी देखें',
+      ctaLink: posterCtaLinkInput.trim() || 'register',
+      isActive: posterIsActiveInput,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+
+    let updated: SiteConfig;
+    if (editingPosterId) {
+      const posters = siteConfig.promotionalPosters.map((p) => (p.id === editingPosterId ? newPoster : p));
+      updated = StorageService.updateSiteConfig({ promotionalPosters: posters });
+    } else {
+      updated = StorageService.addPoster(newPoster);
+    }
+    setSiteConfig(updated);
+    setShowPosterModal(false);
+    setEditingPosterId(null);
+    setActionSuccess(editingPosterId ? 'प्रमोशनल पोस्टर अपडेट हो गया!' : 'नया प्रमोशनल पोस्टर जुड़ गया!');
+    setTimeout(() => setActionSuccess(''), 3000);
+  };
+
+  const handleDeletePoster = (posterId: string) => {
+    if (window.confirm('क्या आप सचमुच इस प्रमोशनल पोस्टर को हटाना चाहते हैं?')) {
+      const updated = StorageService.removePoster(posterId);
+      setSiteConfig(updated);
+      setActionSuccess('प्रमोशनल पोस्टर सफलतापूर्वक हटा दिया गया!');
+      setTimeout(() => setActionSuccess(''), 3000);
+    }
+  };
+
+  const handleTogglePosterActive = (posterId: string) => {
+    const posters = siteConfig.promotionalPosters.map((p) => {
+      if (p.id === posterId) {
+        return { ...p, isActive: !p.isActive };
+      }
+      return p;
+    });
+    const updated = StorageService.updateSiteConfig({ promotionalPosters: posters });
+    setSiteConfig(updated);
+  };
+
+  // Filtered members
+  const filteredMembers = members.filter((m) => {
+    if (!m) return false;
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      (m.fullName || '').toLowerCase().includes(q) ||
+      (m.accId || '').toLowerCase().includes(q) ||
+      String(m.mobile || '').includes(q) ||
+      String(m.utrNumber || '').toLowerCase().includes(q) ||
+      (m.sponsorName || '').toLowerCase().includes(q) ||
+      (m.sponsorId || '').toLowerCase().includes(q) ||
+      (m.email || '').toLowerCase().includes(q) ||
+      (m.city || '').toLowerCase().includes(q);
+
+    const matchesPlan = filterPlan === 'ALL' || m.plan === filterPlan;
+    const matchesStatus = filterStatus === 'ALL' || m.status === filterStatus;
+
+    let matchesSponsor = true;
+    const hasSponsor = Boolean(m.sponsorId && m.sponsorId !== 'DIRECT' && m.sponsorId !== 'ADMIN');
+    if (filterSponsor === 'WITH_SPONSOR') {
+      matchesSponsor = hasSponsor;
+    } else if (filterSponsor === 'COMMISSION_PENDING') {
+      matchesSponsor = hasSponsor && m.sponsorCommissionStatus !== 'paid';
+    } else if (filterSponsor === 'COMMISSION_PAID') {
+      matchesSponsor = hasSponsor && m.sponsorCommissionStatus === 'paid';
+    } else if (filterSponsor === 'DIRECT') {
+      matchesSponsor = !hasSponsor;
+    }
+
+    return matchesSearch && matchesPlan && matchesStatus && matchesSponsor;
+  });
+
+  // System stats
+  const pendingMembers = members.filter((m) => m && m.status === 'pending');
+  const verifiedMembers = members.filter((m) => m && m.status === 'verified');
+  const rejectedMembers = members.filter((m) => m && m.status === 'rejected');
+  const totalRevenue = verifiedMembers.length * 249;
+
+  // IF ADMIN IS LOCKED: SHOW SECURE PIN/PASSWORD SCREEN (NO PASSWORD DISPLAYED)
+  if (!isAdminUnlocked) {
+    return (
+      <div className="max-w-md mx-auto py-12 px-4 animate-fadeIn">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 sm:p-8 shadow-md text-center space-y-5">
+          <div className="w-14 h-14 rounded-full bg-red-50 text-red-600 mx-auto flex items-center justify-center border border-red-200 shadow-xs">
+            <Lock className="w-7 h-7" />
+          </div>
+
+          <div>
+            <h2 className="text-xl font-black font-display text-slate-900">
+              सुरक्षित एडमिन नियंत्रण कक्ष (Admin Panel)
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              गोपनीयता और डेटा सुरक्षा हेतु अधिकृत एडमिन पासवर्ड दर्ज करें
+            </p>
+          </div>
+
+          {adminPasswordError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-sm flex items-center gap-2 text-left">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>{adminPasswordError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleAdminLogin} className="space-y-4">
+            <div className="text-left">
+              <label className="block text-xs font-bold text-slate-800 mb-1">
+                गुप्त एडमिन पासवर्ड (Admin Security Password)
+              </label>
+              <div className="relative">
+                <Key className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                <input
+                  type="password"
+                  value={adminPasswordInput}
+                  onChange={(e) => setAdminPasswordInput(e.target.value)}
+                  placeholder="सुरक्षित एडमिन पासवर्ड दर्ज करें"
+                  className="w-full bg-white border border-gray-300 rounded-sm pl-9 pr-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-[#2874f0] focus:ring-1 focus:ring-[#2874f0] font-mono-acc font-bold"
+                  required
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-2.5 bg-[#2874f0] hover:bg-[#1258c7] text-white font-bold text-xs rounded-sm shadow-sm transition"
+            >
+              एडमिन पैनल अनलॉक करें
+            </button>
+          </form>
+
+          <div className="text-[11px] text-slate-400 border-t border-gray-100 pt-3">
+            <span>🛡️ एंड-टू-एंड एनक्रिप्टेड एडमिन प्रमाणीकरण</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // UNLOCKED ADMIN DASHBOARD - Flipkart Clean Style
+  return (
+    <div className="max-w-7xl mx-auto space-y-6 animate-fadeIn">
+      {/* Admin Title & Actions */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white border border-gray-200 p-4 sm:p-5 rounded-xl shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-lg bg-red-50 text-red-600 flex items-center justify-center border border-red-200 shrink-0 shadow-xs">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-slate-900">
+                Achievers Club Community - केंद्रीय एडमिन पैनल
+              </h2>
+              <span className="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded font-mono-acc font-bold border border-red-200">
+                ROOT ACCESS
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              यूजर रजिस्ट्रेशन रिकॉर्ड, पेमेंट स्क्रीनशॉट सत्यापन (Approve / Reject) एवं Real App Link वितरण
+            </p>
+          </div>
+        </div>
+
+        {/* Database backup, change password & logout buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={refreshData}
+            disabled={isCloudSyncing}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-sm shadow-xs transition disabled:opacity-75"
+            title="क्लाउड डेटाबेस (Firestore) से ताज़ा यूजर फेच करें"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
+            <span>{isCloudSyncing ? 'सिंक हो रहा है...' : '🔄 लाइव क्लाउड सिंक'}</span>
+          </button>
+
+          <button
+            onClick={() => setShowPasswordModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#2874f0] text-xs font-semibold rounded-sm border border-blue-200 transition"
+            title="पासवर्ड बदलें"
+          >
+            <Key className="w-3.5 h-3.5" />
+            <span>पासवर्ड बदलें</span>
+          </button>
+
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-sm border border-gray-200 transition"
+            title="Export JSON Backup"
+          >
+            <Download className="w-3.5 h-3.5 text-[#2874f0]" />
+            <span>बैकअप</span>
+          </button>
+
+          <label className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-sm border border-gray-200 cursor-pointer transition">
+            <Upload className="w-3.5 h-3.5 text-emerald-600" />
+            <span>इम्पोर्ट</span>
+            <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+          </label>
+
+          <button
+            onClick={handleResetData}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold rounded-sm border border-red-200 transition"
+            title="Reset to initial seed"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>रीसेट</span>
+          </button>
+
+          <button
+            onClick={handleAdminLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-sm shadow-xs transition"
+            title="Lock Panel"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>लॉक करें</span>
+          </button>
+        </div>
+      </div>
+
+      {actionSuccess && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-sm flex items-center gap-2 animate-fadeIn shadow-xs">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span className="font-semibold">{actionSuccess}</span>
+        </div>
+      )}
+
+      {/* Main Admin Primary Tabs */}
+      <div className="flex bg-white border border-gray-200 rounded-xl p-1 gap-1 overflow-x-auto no-scrollbar shadow-xs">
+        <button
+          onClick={() => setAdminTab('members')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold whitespace-nowrap rounded-lg transition ${
+            adminTab === 'members'
+              ? 'bg-blue-50 text-[#2874f0] border border-blue-200 shadow-xs'
+              : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <Users className="w-4 h-4 text-[#2874f0]" />
+          <span>👥 पंजीकृत सदस्य व UTR सत्यापन ({members.length})</span>
+        </button>
+
+        <button
+          onClick={() => setAdminTab('form_responses')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold whitespace-nowrap rounded-lg transition ${
+            adminTab === 'form_responses'
+              ? 'bg-blue-50 text-[#2874f0] border border-blue-200 shadow-xs'
+              : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <FileText className="w-4 h-4 text-[#2874f0]" />
+          <span>📋 यूजर सबमिट फॉर्म रिस्पॉन्स व्यू ({members.length})</span>
+        </button>
+
+        <button
+          onClick={() => setAdminTab('withdrawals')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold whitespace-nowrap rounded-lg transition ${
+            adminTab === 'withdrawals'
+              ? 'bg-amber-50 text-amber-800 border border-amber-300 shadow-xs'
+              : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <CreditCard className="w-4 h-4 text-amber-600" />
+          <span>💰 निकासी अनुरोध ({withdrawals.filter((w) => w.status === 'pending').length} लंबित)</span>
+        </button>
+
+        <button
+          onClick={() => setAdminTab('website_cms')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold whitespace-nowrap rounded-lg transition ${
+            adminTab === 'website_cms'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-xs'
+              : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <Sliders className="w-4 h-4 text-emerald-600" />
+          <span>⚙️ वेबपेज व सिस्टम संपूर्ण नियंत्रण (Helpline, Address, Posters & Services)</span>
+        </button>
+      </div>
+
+      {/* TAB 1: MEMBERS & VERIFICATION */}
+      {adminTab === 'members' && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* 4 Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white border border-gray-200 rounded-xl p-3.5 shadow-xs">
+          <span className="text-[11px] text-slate-500 block font-medium">कुल पंजीकृत सदस्य</span>
+          <span className="font-mono-acc font-black text-2xl text-slate-900">
+            {members.length}
+          </span>
+          <span className="text-[10px] text-slate-500 block mt-0.5">
+            {members.filter((m) => m.plan === 'SWIS').length} SWIS •{' '}
+            {members.filter((m) => m.plan === 'TWIS').length} TWIS
+          </span>
+        </div>
+
+        <div className="bg-white border border-amber-300 rounded-xl p-3.5 shadow-xs bg-amber-50/30">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-amber-800 font-bold block">लंबित रसीद सत्यापन</span>
+            {pendingMembers.length > 0 && (
+              <span className="animate-pulse w-2.5 h-2.5 rounded-full bg-amber-500" />
+            )}
+          </div>
+          <span className="font-mono-acc font-black text-2xl text-amber-700">
+            {pendingMembers.length}
+          </span>
+          <span className="text-[10px] text-amber-700 block mt-0.5 font-medium">
+            सत्यापन व स्क्रीनशॉट जांच की प्रतीक्षा में
+          </span>
+        </div>
+
+        <div className="bg-white border border-emerald-200 rounded-xl p-3.5 shadow-xs bg-green-50/20">
+          <span className="text-[11px] text-emerald-800 font-bold block">सत्यापित सदस्य (₹249 Paid)</span>
+          <span className="font-mono-acc font-black text-2xl text-emerald-600">
+            {verifiedMembers.length}
+          </span>
+          <span className="text-[10px] text-emerald-600 block mt-0.5">
+            कुल राजस्व: ₹{totalRevenue.toLocaleString()}
+          </span>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-3.5 shadow-xs">
+          <span className="text-[11px] text-slate-500 block font-medium">अस्वीकृत आवेदन (Rejected)</span>
+          <span className="font-mono-acc font-black text-2xl text-red-600">
+            {rejectedMembers.length}
+          </span>
+          <span className="text-[10px] text-slate-500 block mt-0.5">
+            गलत UTR या अधूरी रसीद
+          </span>
+        </div>
+      </div>
+
+      {/* Pending Withdrawals Section if any */}
+      {withdrawals.filter((w) => w.status === 'pending').length > 0 && (
+        <div className="bg-white border border-amber-300 rounded-xl p-5 space-y-3 shadow-xs">
+          <h3 className="text-sm font-bold text-amber-800 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <span>लंबित निकासी अनुरोध (Pending Payouts)</span>
+          </h3>
+          <div className="space-y-2">
+            {withdrawals
+              .filter((w) => w.status === 'pending')
+              .map((w) => (
+                <div
+                  key={w.id}
+                  className="bg-[#f1f2f4] p-3 rounded-lg border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                >
+                  <div>
+                    <span className="font-bold text-slate-900">{w.memberName}</span>
+                    <span className="text-slate-600 font-mono-acc ml-2">({w.accId})</span>
+                    <p className="text-slate-600 mt-0.5">
+                      माध्यम: <strong className="text-slate-900">{w.method}</strong> ({w.upiId || 'बैंक खाता'})
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono-acc font-bold text-base text-emerald-600">
+                      ₹{w.amount}
+                    </span>
+                    <button
+                      onClick={() => handleApproveWithdrawal(w.id)}
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-sm shadow-xs"
+                    >
+                      स्वीकृत (Approve)
+                    </button>
+                    <button
+                      onClick={() => handleRejectWithdrawal(w.id)}
+                      className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded-sm border border-red-200"
+                    >
+                      अस्वीकार
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Member Management Master Table with SCREENSHOT PREVIEW & APPROVE/REJECT ACTIONS */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Users className="w-4 h-4 text-[#2874f0]" />
+              <span>पंजीकृत सदस्य, पेमेंट स्क्रीनशॉट सत्यापन (Approve / Reject)</span>
+            </h3>
+            <p className="text-xs text-slate-500">
+              छात्रों द्वारा अपलोड की गई ₹249 की पेमेंट रसीद/स्क्रीनशॉट देखें और एक क्लिक में स्वीकृत या अस्वीकृत करें
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-600">
+              कुल: <strong>{filteredMembers.length}</strong> सदस्य
+            </span>
+          </div>
+        </div>
+
+        {/* Filters and Search Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="नाम, ACC ID, स्पॉन्सर, मोबाइल या UTR..."
+              className="w-full bg-white border border-gray-300 rounded-sm pl-9 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0] focus:ring-1 focus:ring-[#2874f0]"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-600 shrink-0 font-medium">सिस्टम:</span>
+            <select
+              value={filterPlan}
+              onChange={(e) => setFilterPlan(e.target.value as any)}
+              className="w-full bg-white border border-gray-300 rounded-sm px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+            >
+              <option value="ALL">सभी सिस्टम (SWIS + TWIS)</option>
+              <option value="SWIS">SWIS (रिचार्ज कमीशन)</option>
+              <option value="TWIS">TWIS (रेफरल सिस्टम)</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-600 shrink-0 font-medium">सत्यापन स्थिति:</span>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as any)}
+              className="w-full bg-white border border-gray-300 rounded-sm px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+            >
+              <option value="ALL">सभी स्थितियां</option>
+              <option value="pending">⏳ केवल लंबित (Pending)</option>
+              <option value="verified">✓ केवल सत्यापित (Verified)</option>
+              <option value="rejected">✕ केवल अस्वीकृत (Rejected)</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-amber-900 shrink-0 font-bold">स्पॉन्सर/कमिशन:</span>
+            <select
+              value={filterSponsor}
+              onChange={(e) => setFilterSponsor(e.target.value as any)}
+              className="w-full bg-amber-50 border border-amber-300 rounded-sm px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0] font-medium"
+            >
+              <option value="ALL">सभी सदस्य</option>
+              <option value="WITH_SPONSOR">केवल स्पॉन्सर वाले</option>
+              <option value="COMMISSION_PENDING">⏳ ₹150 कमिशन लंबित</option>
+              <option value="COMMISSION_PAID">✓ ₹150 कमिशन चुकता</option>
+              <option value="DIRECT">🏢 कंपनी डायरेक्ट (No Sponsor)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+          <table className="w-full text-left text-xs text-slate-700">
+            <thead className="bg-[#f1f2f4] text-slate-800 uppercase font-bold text-[11px] border-b border-gray-200">
+              <tr>
+                <th className="py-3 px-3">सदस्य प्रोफाइल</th>
+                <th className="py-3 px-3">Unique ACC 🆔</th>
+                <th className="py-3 px-3">सिस्टम</th>
+                <th className="py-3 px-3">मोबाइल</th>
+                <th className="py-3 px-3">UTR No. (₹249)</th>
+                <th className="py-3 px-3">रसीद व QR</th>
+                <th className="py-3 px-3 bg-amber-50 text-amber-950 border-x border-amber-200">स्पॉन्सर विवरण व ₹150 कमिशन</th>
+                <th className="py-3 px-3">सत्यापन स्थिति</th>
+                <th className="py-3 px-3 text-right">सत्यापन कार्रवाई / सुरक्षा</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 font-sans bg-white">
+              {filteredMembers.map((m) => (
+                <tr key={m.id || m.accId} className="hover:bg-blue-50/40 transition">
+                  <td className="py-2.5 px-3">
+                    <div className="flex items-center gap-2.5">
+                      {m.avatarUrl ? (
+                        <img
+                          src={m.avatarUrl}
+                          alt={m.fullName}
+                          className="w-9 h-9 rounded-full object-cover border-2 border-[#2874f0] shadow-xs shrink-0"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-blue-100 text-[#2874f0] font-bold text-xs flex items-center justify-center shrink-0 border border-blue-200">
+                          {(m.fullName || 'M').substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <span className="font-bold text-slate-900 block truncate">{m.fullName}</span>
+                        <span className="text-[10px] text-slate-500 block truncate">{m.city || 'शहर'}, {m.state || 'राज्य'}</span>
+                        {m.profileLink && (
+                          <a
+                            href={m.profileLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] text-[#2874f0] hover:underline"
+                            title="प्रोफाइल लिंक खोलें"
+                          >
+                            <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                            <span className="truncate max-w-[120px]">{m.profileLink.replace(/^https?:\/\//, '')}</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-2.5 px-3">
+                    <span className="font-mono-acc font-bold text-[#2874f0] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                      {m.accId}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        m.plan === 'SWIS' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-blue-100 text-blue-800 border border-blue-200'
+                      }`}
+                    >
+                      {m.plan}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 font-mono-acc text-slate-700">
+                    <div className="flex items-center gap-1">
+                      <span>{m.mobile}</span>
+                      <a
+                        href={`https://api.whatsapp.com/send?phone=91${m.mobile}&text=${encodeURIComponent(`नमस्ते ${m.fullName}, मैं Achievers Club Community एडमिन बात कर रहा हूँ।`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-600 hover:text-emerald-700 p-0.5"
+                        title="WhatsApp चैट"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </td>
+                  <td className="py-2.5 px-3 font-mono-acc text-slate-700 text-[11px]">
+                    <span className="text-emerald-700 font-semibold block">₹249 PAID</span>
+                    <span className="text-[10px] text-slate-500 font-bold">{m.utrNumber || 'N/A'}</span>
+                  </td>
+
+                  {/* PAYMENT SCREENSHOT & PERSONAL QR COLUMN */}
+                  <td className="py-2.5 px-3">
+                    <div className="flex flex-col gap-1">
+                      {m.paymentScreenshotUrl ? (
+                        <button
+                          onClick={() => {
+                            setScreenshotModalMember(m);
+                            setZoomLevel(1);
+                          }}
+                          className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-[#2874f0] border border-blue-200 rounded text-[10px] font-bold shadow-xs transition group w-fit"
+                          title="स्क्रीनशॉट रसीद देखें"
+                        >
+                          <ImageIcon className="w-3 h-3 text-[#2874f0] group-hover:scale-110 transition-transform" />
+                          <span>रसीद देखें</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setScreenshotModalMember(m);
+                            setZoomLevel(1);
+                          }}
+                          className="text-[10px] text-slate-400 hover:text-slate-700 flex items-center gap-1"
+                          title="रसीद संलग्न नहीं, केवल UTR देखें"
+                        >
+                          <span>कोई रसीद नहीं</span>
+                        </button>
+                      )}
+
+                      {m.personalQrUrl && (
+                        <span className="text-[9px] text-purple-700 font-bold bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 w-fit">
+                          पर्सनल QR उपलब्ध ✓
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* SPONSOR & COMMISSION COLUMN (Crystal clear distinction: User vs Sponsor) */}
+                  <td className="py-2.5 px-3 bg-amber-50/40 border-x border-amber-100">
+                    {(() => {
+                      const sponsor = members.find(
+                        (s) => (s.accId || '').toUpperCase() === (m.sponsorId || '').toUpperCase() || s.mobile === m.sponsorId
+                      );
+                      const hasSponsor = Boolean(m.sponsorId && m.sponsorId !== 'DIRECT' && m.sponsorId !== 'ADMIN');
+
+                      if (!hasSponsor) {
+                        return (
+                          <div className="space-y-0.5">
+                            <span className="font-semibold text-slate-700 text-[11px] block">🏢 कंपनी डायरेक्ट</span>
+                            <span className="text-[10px] text-slate-400 block">नो स्पॉन्सर (नो कमिशन)</span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-900 block truncate max-w-[130px]" title={m.sponsorName || sponsor?.fullName}>
+                              {m.sponsorName || sponsor?.fullName || 'स्पॉन्सर'}
+                            </span>
+                            <span className="text-[9px] bg-blue-100 text-[#2874f0] px-1.5 py-0.2 rounded font-mono font-bold">
+                              {m.sponsorId}
+                            </span>
+                          </div>
+
+                          {/* Sponsor Mobile & WhatsApp */}
+                          {sponsor && (
+                            <div className="flex items-center gap-1 text-[10px] text-slate-600 font-mono">
+                              <span>{sponsor.mobile}</span>
+                              <a
+                                href={`https://api.whatsapp.com/send?phone=91${sponsor.mobile}&text=${encodeURIComponent(
+                                  `नमस्ते ${sponsor.fullName}, मैं Achievers Club एडमिन बोल रहा हूँ। आपके रेफरल ${m.fullName} (${m.accId}) का कमिशन विवरण: ₹150।`
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-emerald-600 hover:text-emerald-700 p-0.5"
+                                title="स्पॉन्सर से WhatsApp चैट"
+                              >
+                                <MessageCircle className="w-3 h-3" />
+                              </a>
+                            </div>
+                          )}
+
+                          {/* Sponsor Payout Info (UPI / Bank) */}
+                          {sponsor?.payoutDetails?.upiId ? (
+                            <div className="flex items-center justify-between gap-1 text-[10px] bg-white px-1.5 py-0.5 rounded border border-amber-200">
+                              <span className="font-mono text-emerald-800 font-bold truncate max-w-[110px]" title={sponsor.payoutDetails.upiId}>
+                                {sponsor.payoutDetails.upiId}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(sponsor.payoutDetails?.upiId || '');
+                                  alert('स्पॉन्सर UPI ID कॉपी हो गई: ' + sponsor.payoutDetails?.upiId);
+                                }}
+                                className="text-[#2874f0] hover:underline font-bold text-[9px] shrink-0"
+                              >
+                                कॉपी
+                              </button>
+                            </div>
+                          ) : sponsor?.payoutDetails?.accountNumber ? (
+                            <span className="text-[9px] text-slate-600 block font-mono truncate max-w-[130px]">
+                              A/C: {sponsor.payoutDetails.accountNumber} ({sponsor.payoutDetails.bankName})
+                            </span>
+                          ) : sponsor ? (
+                            <span className="text-[9px] text-slate-400 block font-mono">
+                              UPI: {sponsor.mobile}@upi
+                            </span>
+                          ) : null}
+
+                          {/* Commission Status / Action */}
+                          <div className="pt-0.5 flex items-center gap-1">
+                            {m.sponsorCommissionStatus === 'paid' ? (
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold border border-emerald-300"
+                                title={`Paid: ${m.sponsorCommissionPaidAt || ''}`}
+                              >
+                                ✓ ₹150 चुकता
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCommissionPayMember(m);
+                                  setCommissionUtrInput(`COMM-${Date.now().toString().slice(-8)}`);
+                                }}
+                                className="inline-flex items-center gap-0.5 text-[9px] bg-[#fb641b] hover:bg-[#e85a14] text-white px-1.5 py-0.5 rounded font-bold transition shadow-xs"
+                                title="स्पॉन्सर को ₹150 कमीशन भुगतान दर्ज करें"
+                              >
+                                <span>₹150 पे करें</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </td>
+
+                  {/* STATUS BADGE */}
+                  <td className="py-2.5 px-3">
+                    {m.status === 'verified' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-300 px-2 py-0.5 rounded font-bold">
+                        <Check className="w-3 h-3 text-emerald-600" /> सत्यापित
+                      </span>
+                    ) : m.status === 'rejected' ? (
+                      <span 
+                        className="inline-flex items-center gap-1 text-[10px] bg-red-50 text-red-700 border border-red-300 px-2 py-0.5 rounded font-bold cursor-help"
+                        title={m.rejectionReason || 'अमान्य भुगतान'}
+                      >
+                        <X className="w-3 h-3 text-red-600" /> अस्वीकृत
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-amber-50 text-amber-800 border border-amber-300 px-2 py-0.5 rounded font-bold animate-pulse">
+                        ⏳ सत्यापन लंबित
+                      </span>
+                    )}
+                  </td>
+
+                  {/* ACTION BUTTONS: APPROVE / REJECT / DETAILS / SECURITY */}
+                  <td className="py-2.5 px-3 text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {/* One-Click Approve */}
+                      {m.status !== 'verified' && (
+                        <button
+                          onClick={() => handleApproveMember(m)}
+                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold flex items-center gap-1 shadow-xs transition"
+                          title="सत्यापित व स्वीकृत करें (Approve)"
+                        >
+                          <Check className="w-3 h-3" />
+                          <span>अप्रूव</span>
+                        </button>
+                      )}
+
+                      {/* One-Click Reject */}
+                      {m.status !== 'rejected' && (
+                        <button
+                          onClick={() => handleOpenRejectModal(m)}
+                          className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded text-[11px] font-bold flex items-center gap-1 transition"
+                          title="अस्वीकृत करें (Reject)"
+                        >
+                          <X className="w-3 h-3" />
+                          <span>रिजेक्ट</span>
+                        </button>
+                      )}
+
+                      {/* View Full Form Response Button */}
+                      <button
+                        onClick={() => setFormResponseModalMember(m)}
+                        className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-[#2874f0] border border-blue-200 rounded text-[11px] font-bold flex items-center gap-1 shadow-xs transition"
+                        title="यूजर द्वारा सबमिट किया गया संपूर्ण फॉर्म रिस्पॉन्स देखें"
+                      >
+                        <FileText className="w-3 h-3 text-[#2874f0]" />
+                        <span>फॉर्म देखें</span>
+                      </button>
+
+                      {/* View Screenshot & Details */}
+                      <button
+                        onClick={() => {
+                          setScreenshotModalMember(m);
+                          setZoomLevel(1);
+                        }}
+                        className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded border border-gray-200 transition"
+                        title="स्क्रीनशॉट व संपूर्ण विवरण देखें"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Admin Security & Password Reset Support Button */}
+                      <button
+                        onClick={() => {
+                          setMemberSecurityModal(m);
+                          setMemberNewPasswordInput('acc@' + Math.floor(1000 + Math.random() * 9000));
+                          setMemberSecurityMsg('');
+                        }}
+                        className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded border border-amber-300 transition"
+                        title="पासवर्ड व सुरक्षा सहायता (सुरक्षा उत्तर भूलने पर समाधान)"
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Share App Link Button if verified */}
+                      {m.status === 'verified' && (
+                        <button
+                          onClick={() => setLinkModalMember(m)}
+                          className="p-1.5 bg-blue-50 hover:bg-blue-100 text-[#2874f0] rounded border border-blue-200 transition"
+                          title="Real App Link प्रेषित करें"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )}
+
+  {/* ========================================================================= */}
+  {/* TAB: USER SUBMITTED FORM RESPONSES VIEW SYSTEM */}
+  {/* ========================================================================= */}
+  {adminTab === 'form_responses' && (
+    <div className="space-y-6 animate-fadeIn">
+      {/* Overview Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white border border-gray-200 rounded-xl p-3.5 shadow-xs">
+          <span className="text-[11px] text-slate-500 block font-medium">कुल सबमिट फॉर्म रिस्पॉन्स</span>
+          <span className="font-mono-acc font-black text-2xl text-slate-900">{members.length}</span>
+          <span className="text-[10px] text-slate-500 block mt-0.5">
+            {members.filter((m) => m.plan === 'SWIS').length} SWIS • {members.filter((m) => m.plan === 'TWIS').length} TWIS
+          </span>
+        </div>
+
+        <div className="bg-amber-50/50 border border-amber-300 rounded-xl p-3.5 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-amber-800 font-bold block">लंबित फॉर्म समीक्षा</span>
+            {pendingMembers.length > 0 && <span className="animate-pulse w-2.5 h-2.5 rounded-full bg-amber-500" />}
+          </div>
+          <span className="font-mono-acc font-black text-2xl text-amber-700">{pendingMembers.length}</span>
+          <span className="text-[10px] text-amber-700 block mt-0.5">सत्यापन व UTR मिलान की प्रतीक्षा में</span>
+        </div>
+
+        <div className="bg-green-50/40 border border-emerald-300 rounded-xl p-3.5 shadow-xs">
+          <span className="text-[11px] text-emerald-800 font-bold block">स्वीकृत व सक्रिय फॉर्म</span>
+          <span className="font-mono-acc font-black text-2xl text-emerald-600">{verifiedMembers.length}</span>
+          <span className="text-[10px] text-emerald-600 block mt-0.5">सफल ₹249 भुगतान एवं एक्टिवेटेड 🆔</span>
+        </div>
+
+        <div className="bg-red-50/40 border border-red-200 rounded-xl p-3.5 shadow-xs">
+          <span className="text-[11px] text-red-800 font-bold block">अस्वीकृत फॉर्म</span>
+          <span className="font-mono-acc font-black text-2xl text-red-600">
+            {members.filter((m) => m.status === 'rejected').length}
+          </span>
+          <span className="text-[10px] text-red-600 block mt-0.5">अमान्य UTR या अस्वीकृत रसीद</span>
+        </div>
+      </div>
+
+      {/* Main Form Responses Container */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-[#2874f0]" />
+              <span>यूजर द्वारा सबमिट किए गए रजिस्ट्रेशन फॉर्म का लाइव रिस्पॉन्स डेटा</span>
+            </h3>
+            <p className="text-xs text-slate-500">
+              प्रत्येक छात्र द्वारा रजिस्ट्रेशन के समय भरे गए सभी डेटा (व्यक्तिगत विवरण, पता, प्लान, UTR, फोटो व पेआउट बैंक) का पूर्ण दृश्य
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-600">
+              कुल: <strong>{filteredMembers.length}</strong> फॉर्म रिस्पॉन्स
+            </span>
+          </div>
+        </div>
+
+        {/* Search & Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="नाम, ACC ID, मोबाइल, शहर या UTR खोजें..."
+              className="w-full bg-white border border-gray-300 rounded-sm pl-9 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-600 shrink-0 font-medium">प्लान:</span>
+            <select
+              value={filterPlan}
+              onChange={(e) => setFilterPlan(e.target.value as any)}
+              className="w-full bg-white border border-gray-300 rounded-sm px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+            >
+              <option value="ALL">सभी प्लान (SWIS + TWIS)</option>
+              <option value="SWIS">SWIS (रिचार्ज कमीशन)</option>
+              <option value="TWIS">TWIS (रेफरल सिस्टम)</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-600 shrink-0 font-medium">स्थिति:</span>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as any)}
+              className="w-full bg-white border border-gray-300 rounded-sm px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+            >
+              <option value="ALL">सभी स्थितियां</option>
+              <option value="pending">⏳ लंबित समीक्षा (Pending)</option>
+              <option value="verified">✓ सत्यापित (Verified)</option>
+              <option value="rejected">✕ अस्वीकृत (Rejected)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Form Responses Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          {filteredMembers.map((m) => (
+            <div
+              key={m.id || m.accId}
+              className="bg-slate-50 border border-gray-200 hover:border-blue-300 rounded-xl p-4 space-y-3 transition shadow-xs flex flex-col justify-between"
+            >
+              <div className="space-y-3">
+                {/* Header: Photo, Name, ACC ID, Plan & Status */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {m.avatarUrl ? (
+                      <img
+                        src={m.avatarUrl}
+                        alt={m.fullName}
+                        className="w-12 h-12 rounded-full object-cover border-2 border-[#2874f0] shadow-xs shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-blue-100 text-[#2874f0] font-black text-sm flex items-center justify-center shrink-0 border border-blue-200">
+                        {(m.fullName || 'MB').substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">{m.fullName}</h4>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono-acc font-black text-[#2874f0] text-xs bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                          {m.accId}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                            m.plan === 'SWIS'
+                              ? 'bg-amber-50 text-amber-900 border-amber-300'
+                              : 'bg-indigo-50 text-indigo-900 border-indigo-300'
+                          }`}
+                        >
+                          {m.plan} Plan
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    {m.status === 'verified' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full font-bold">
+                        <Check className="w-3 h-3 text-emerald-600" /> सत्यापित
+                      </span>
+                    ) : m.status === 'rejected' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-red-100 text-red-800 border border-red-300 px-2 py-0.5 rounded-full font-bold">
+                        <X className="w-3 h-3 text-red-600" /> अस्वीकृत
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full font-bold animate-pulse">
+                        ⏳ लंबित
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Grid of Key Submitted Fields */}
+                <div className="grid grid-cols-2 gap-2 text-xs bg-white p-3 rounded-lg border border-gray-200">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">पंजीकृत मोबाइल:</span>
+                    <div className="flex items-center gap-1 font-mono-acc font-semibold text-slate-800">
+                      <span>{m.mobile}</span>
+                      <a
+                        href={`https://api.whatsapp.com/send?phone=91${m.mobile}&text=${encodeURIComponent(
+                          `नमस्ते ${m.fullName}, मैं Achievers Club Community एडमिन बात कर रहा हूँ। आपके रजिस्ट्रेशन फॉर्म (${m.accId}) के संबंध में:`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-600 hover:text-emerald-700"
+                        title="WhatsApp चैट"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">ईमेल:</span>
+                    <span className="text-slate-700 truncate block text-[11px]">{m.email}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">शिक्षा / कॉलेज:</span>
+                    <span className="text-slate-800 font-medium truncate block text-[11px]">{m.qualification}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">स्थान (City, State):</span>
+                    <span className="text-slate-800 truncate block text-[11px]">
+                      {m.city}, {m.state} ({m.pincode})
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">पेमेंट UTR No. (₹249):</span>
+                    <span className="font-mono-acc font-bold text-emerald-700 text-[11px] truncate block">
+                      {m.utrNumber || 'N/A'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">स्पॉन्सर विवरण:</span>
+                    <span className="text-slate-800 text-[11px] font-semibold truncate block">
+                      {m.sponsorName || 'Direct'} ({m.sponsorId || 'None'})
+                    </span>
+                  </div>
+                </div>
+
+                {/* Payment Receipt & Payout Account Badges */}
+                <div className="flex items-center justify-between gap-2 text-[10px]">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {m.paymentScreenshotUrl ? (
+                      <span className="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                        <ImageIcon className="w-3 h-3 text-emerald-600" />
+                        <span>रसीद संलग्न ✓</span>
+                      </span>
+                    ) : (
+                      <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-gray-200">
+                        केवल UTR
+                      </span>
+                    )}
+
+                    {m.payoutDetails?.upiId ? (
+                      <span className="bg-purple-50 text-purple-800 font-bold px-2 py-0.5 rounded border border-purple-200">
+                        UPI: {m.payoutDetails.upiId}
+                      </span>
+                    ) : m.payoutDetails?.accountNumber ? (
+                      <span className="bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded border border-blue-200">
+                        A/C: {m.payoutDetails.accountNumber}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <span className="text-slate-400 font-mono text-[10px]">
+                    {m.paymentDate || m.createdAt?.split('T')[0] || '2026-10-08'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-3 border-t border-gray-200 flex items-center justify-between gap-2">
+                <button
+                  onClick={() => setFormResponseModalMember(m)}
+                  className="flex-1 py-1.5 bg-[#2874f0] hover:bg-[#1258c7] text-white font-bold text-xs rounded-sm flex items-center justify-center gap-1.5 shadow-xs transition"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>📋 संपूर्ण फॉर्म रिस्पॉन्स खोलें</span>
+                </button>
+
+                {m.status !== 'verified' && (
+                  <button
+                    onClick={() => handleApproveMember(m)}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-sm flex items-center gap-1 shadow-xs transition"
+                    title="स्वीकृत करें"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>अप्रूव</span>
+                  </button>
+                )}
+
+                {m.status !== 'rejected' && (
+                  <button
+                    onClick={() => handleOpenRejectModal(m)}
+                    className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs rounded-sm border border-red-200 transition"
+                    title="अस्वीकृत करें"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )}
+
+  {/* ========================================================================= */}
+  {/* TAB 2: WITHDRAWALS & PAYOUTS */}
+  {/* ========================================================================= */}
+  {adminTab === 'withdrawals' && (
+    <div className="space-y-6 animate-fadeIn">
+      <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-amber-600" />
+              <span>छात्र वॉलेट निकासी अनुरोध एवं पेआउट (Withdrawals & Payouts)</span>
+            </h3>
+            <p className="text-xs text-slate-500">
+              सदस्यों द्वारा किए गए दैनिक वॉलेट निकासी अनुरोध (UPI / Bank) जांचें और एक क्लिक में भुगतान स्वीकृत करें
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-1 rounded font-bold">
+              लंबित: {withdrawals.filter((w) => w.status === 'pending').length}
+            </span>
+            <span className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded font-bold">
+              स्वीकृत: {withdrawals.filter((w) => w.status === 'approved').length}
+            </span>
+          </div>
+        </div>
+
+        {withdrawals.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-500 bg-slate-50 rounded-lg border border-gray-200">
+            कोई निकासी अनुरोध उपलब्ध नहीं है।
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-[#f1f2f4] text-slate-700 border-b border-gray-200 font-bold">
+                  <th className="py-2.5 px-3">सदस्य विवरण</th>
+                  <th className="py-2.5 px-3">निकासी राशि</th>
+                  <th className="py-2.5 px-3">माध्यम व UPI ID / बैंक</th>
+                  <th className="py-2.5 px-3">अनुरोध दिनांक</th>
+                  <th className="py-2.5 px-3">स्थिति</th>
+                  <th className="py-2.5 px-3 text-right">कार्रवाई (Action)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {withdrawals.map((w) => (
+                  <tr key={w.id} className="hover:bg-slate-50">
+                    <td className="py-3 px-3">
+                      <strong className="text-slate-900 block">{w.memberName}</strong>
+                      <span className="font-mono-acc text-slate-500 text-[11px]">{w.accId}</span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="font-mono-acc font-black text-sm text-emerald-600">
+                        ₹{w.amount.toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="text-slate-700">
+                        <strong className="block text-slate-900">{w.method}</strong>
+                        <span className="font-mono-acc text-[11px] text-slate-600">
+                          {w.upiId || (w.bankDetails ? `${w.bankDetails.bankName} - A/C: ${w.bankDetails.accountNumber}` : 'N/A')}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 text-slate-500 font-mono-acc text-[11px]">
+                      {new Date(w.requestedAt).toLocaleDateString('hi-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </td>
+                    <td className="py-3 px-3">
+                      {w.status === 'approved' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-bold border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3" /> स्वीकृत
+                        </span>
+                      ) : w.status === 'rejected' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold border border-red-200">
+                          <XCircle className="w-3 h-3" /> अस्वीकृत
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold border border-amber-200">
+                          <AlertTriangle className="w-3 h-3" /> लंबित
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      {w.status === 'pending' ? (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleApproveWithdrawal(w.id)}
+                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-sm shadow-xs flex items-center gap-1 text-xs"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>स्वीकृत</span>
+                          </button>
+                          <button
+                            onClick={() => handleRejectWithdrawal(w.id)}
+                            className="px-2.5 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded-sm border border-red-200 flex items-center gap-1 text-xs"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>अस्वीकार</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-[11px] italic">निस्तारित</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )}
+
+  {/* ========================================================================= */}
+  {/* TAB 3: WEBPAGE SYSTEM & SERVICES CMS CONTROL */}
+  {/* ========================================================================= */}
+  {adminTab === 'website_cms' && (
+    <div className="space-y-6 animate-fadeIn">
+      {/* Banner Notice */}
+      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-4 sm:p-5 rounded-xl border border-blue-400/30 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Sliders className="w-5 h-5 text-[#ffe500]" />
+            <h3 className="font-bold text-sm sm:text-base text-white">
+              केंद्रीय वेबपेज व सिस्टम कंट्रोल पैनल (Live CMS)
+            </h3>
+          </div>
+          <p className="text-xs text-blue-200">
+            यहाँ से आप हेल्पलाइन, कार्यालय पता, संपर्क बटन, प्रमोशनल पोस्टर और वेबसाइट की नई या पुरानी सर्विसेज जोड़ (Add) व हटा (Remove) सकते हैं।
+          </p>
+        </div>
+        <div className="text-xs bg-white/10 px-3 py-1.5 rounded border border-white/20 font-bold text-yellow-300 shrink-0">
+          ✓ ऑटो रियल-टाइम सिंक
+        </div>
+      </div>
+
+      {/* Grid: Helpline Contacts & Address System */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* SECTION 1: HELPLINE & CONTACT BUTTONS */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 shadow-sm">
+          <div className="border-b border-gray-100 pb-3">
+            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Phone className="w-4 h-4 text-emerald-600" />
+              <span>📞 हेल्पलाइन व संपर्क बटन कंट्रोल (Helpline & Contacts)</span>
+            </h4>
+            <p className="text-xs text-slate-500">
+              वेबसाइट व मोबाइल मोड में दिखने वाले आधिकारिक संपर्क विवरण एवं फ्लोटिंग बटन
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveContactSettings} className="space-y-3.5">
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">
+                हेल्पलाइन कॉलिंग नंबर (Phone Number):
+              </label>
+              <div className="relative">
+                <Phone className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
+                <input
+                  type="text"
+                  value={helplinePhoneInput}
+                  onChange={(e) => setHelplinePhoneInput(e.target.value)}
+                  placeholder="+91 8877490845"
+                  className="w-full bg-white border border-gray-300 rounded-sm pl-8 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0] font-mono-acc font-bold"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">
+                व्हाट्सएप सपोर्ट नंबर (WhatsApp Number):
+              </label>
+              <div className="relative">
+                <MessageCircle className="w-3.5 h-3.5 absolute left-3 top-3 text-emerald-600" />
+                <input
+                  type="text"
+                  value={whatsappNumberInput}
+                  onChange={(e) => setWhatsappNumberInput(e.target.value)}
+                  placeholder="+91 8877490845"
+                  className="w-full bg-white border border-gray-300 rounded-sm pl-8 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0] font-mono-acc font-bold"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">
+                आधिकारिक सपोर्ट ईमेल (Official Email ID):
+              </label>
+              <div className="relative">
+                <Mail className="w-3.5 h-3.5 absolute left-3 top-3 text-blue-600" />
+                <input
+                  type="email"
+                  value={officialEmailInput}
+                  onChange={(e) => setOfficialEmailInput(e.target.value)}
+                  placeholder="santosh09patidar@gmail.com"
+                  className="w-full bg-white border border-gray-300 rounded-sm pl-8 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">
+                टेलीग्राम ग्रुप / चैनल लिंक (Telegram Link):
+              </label>
+              <div className="relative">
+                <Send className="w-3.5 h-3.5 absolute left-3 top-3 text-sky-500" />
+                <input
+                  type="text"
+                  value={telegramLinkInput}
+                  onChange={(e) => setTelegramLinkInput(e.target.value)}
+                  placeholder="https://t.me/achieversclub"
+                  className="w-full bg-white border border-gray-300 rounded-sm pl-8 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0] font-mono-acc"
+                />
+              </div>
+            </div>
+
+            {/* Toggles */}
+            <div className="bg-[#f1f2f4] p-3 rounded-lg border border-gray-200 space-y-2 text-xs">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="font-semibold text-slate-800">कॉलिंग हेल्पलाइन बटन सक्रिय रखें (Show Call Button)</span>
+                <input
+                  type="checkbox"
+                  checked={showCallToggle}
+                  onChange={(e) => setShowCallToggle(e.target.checked)}
+                  className="w-4 h-4 text-[#2874f0] rounded"
+                />
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="font-semibold text-slate-800">व्हाट्सएप फ्लोटिंग सपोर्ट सक्रिय रखें (Show WhatsApp Float)</span>
+                <input
+                  type="checkbox"
+                  checked={showWhatsAppToggle}
+                  onChange={(e) => setShowWhatsAppToggle(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 rounded"
+                />
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-sm shadow-sm flex items-center justify-center gap-1.5 transition"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>हेल्पलाइन व संपर्क सेटिंग्स सुरक्षित करें</span>
+            </button>
+          </form>
+        </div>
+
+        {/* SECTION 2: OFFICIAL ADDRESS, SIGNATORY & PAYMENT QR SETTINGS */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 shadow-sm">
+          <div className="border-b border-gray-100 pb-3">
+            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-[#2874f0]" />
+              <span>🏢 कार्यालय पता, संस्था व ₹249 UPI QR विवरण</span>
+            </h4>
+            <p className="text-xs text-slate-500">
+              आईडी कार्ड बैक साइड, पावती, रजिस्ट्रेशन क्यूआर और फुटर में उपयोग होने वाली जानकारी
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveAddressSettings} className="space-y-3.5">
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">
+                पंजीकृत कार्यालय का पता (Official Address):
+              </label>
+              <div className="relative">
+                <MapPin className="w-3.5 h-3.5 absolute left-3 top-3 text-red-500" />
+                <textarea
+                  rows={2}
+                  value={officialAddressInput}
+                  onChange={(e) => setOfficialAddressInput(e.target.value)}
+                  placeholder="Scheme No. 54, Vijay Nagar, Indore, Madhya Pradesh - 452001"
+                  className="w-full bg-white border border-gray-300 rounded-sm pl-8 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-800">
+                    वेबसाइट URL (Portal Domain):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setWebsiteUrlInput('accindia.js.org')}
+                    className="text-[10px] text-[#2874f0] hover:underline font-bold"
+                  >
+                    Set accindia.js.org
+                  </button>
+                </div>
+                <div className="relative">
+                  <Globe className="w-3.5 h-3.5 absolute left-3 top-3 text-blue-500" />
+                  <input
+                    type="text"
+                    value={websiteUrlInput}
+                    onChange={(e) => setWebsiteUrlInput(e.target.value)}
+                    placeholder="accindia.js.org"
+                    className="w-full bg-white border border-gray-300 rounded-sm pl-8 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0] font-mono-acc font-semibold"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  एक्टिवेशन फीस (Activation Fee ₹):
+                </label>
+                <input
+                  type="number"
+                  value={activationFeeInput}
+                  onChange={(e) => setActivationFeeInput(Number(e.target.value))}
+                  placeholder="249"
+                  className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0] font-mono-acc font-bold"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Free Custom Domain (accindia.js.org) Deployment Status Box */}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-sm p-3">
+              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="text-xs font-bold text-emerald-900">
+                    फ्री कस्टम डोमेन कॉन्फ़िगरेशन: <code className="bg-white px-1.5 py-0.5 rounded text-emerald-700 font-mono-acc border border-emerald-200">https://accindia.js.org</code>
+                  </span>
+                </div>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
+                  100% Free SSL & Hosting
+                </span>
+              </div>
+              <p className="text-[11px] text-emerald-800 leading-relaxed mb-2">
+                इस प्रोजेक्ट में <code className="bg-white px-1 rounded font-mono-acc text-emerald-900">CNAME</code> फाइल पहले से <code className="font-bold">accindia.js.org</code> पर सेट कर दी गई है। GitHub Pages और JS.ORG की मदद से इसे बिना किसी चार्ज (₹0) के हमेशा के लिए लाइव चलाया जा सकता है।
+              </p>
+              <div className="bg-white border border-emerald-100 rounded p-2 text-[11px] text-slate-700 space-y-1">
+                <div className="font-bold text-slate-900 text-xs">🚀 3-स्टेप पब्लिश गाइड (js.org पर फ्री लिंक लाइव करने के लिए):</div>
+                <div><strong>1. GitHub Repository:</strong> अपने कोड को GitHub पर पुश करें और <em>Settings &rarr; Pages</em> में <strong>Custom domain</strong> में <code className="font-mono-acc bg-gray-100 px-1 rounded text-blue-600">accindia.js.org</code> दर्ज करें।</div>
+                <div><strong>2. JS.ORG Pull Request:</strong> <a href="https://github.com/js-org/js.org" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">github.com/js-org/js.org</a> को Fork करें और <code className="font-mono-acc bg-gray-100 px-1 rounded">cnames_active.js</code> में यह पंक्ति जोड़ें:</div>
+                <div className="bg-slate-900 text-emerald-400 p-1.5 rounded font-mono text-[10px] overflow-x-auto select-all">
+                  &quot;accindia&quot;: &quot;&lt;your-github-username&gt;.github.io/&lt;repo-name&gt;&quot;,
+                </div>
+                <div><strong>3. Automatic Activation:</strong> PR मर्ज होते ही <strong>https://accindia.js.org</strong> फ्री SSL के साथ हमेशा के लिए एक्टिव हो जाएगा!</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  अधिकृत एडमिन हस्ताक्षरकर्ता नाम:
+                </label>
+                <input
+                  type="text"
+                  value={adminSignatoryNameInput}
+                  onChange={(e) => setAdminSignatoryNameInput(e.target.value)}
+                  placeholder="Vikas Kumar"
+                  className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0] font-bold"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  पदनाम (Designation Title):
+                </label>
+                <input
+                  type="text"
+                  value={adminSignatoryTitleInput}
+                  onChange={(e) => setAdminSignatoryTitleInput(e.target.value)}
+                  placeholder="Chief Community Administrator"
+                  className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#f1f2f4] p-3 rounded-lg border border-gray-200">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                  पेमेंट UPI ID (₹249 QR हेतु):
+                </label>
+                <input
+                  type="text"
+                  value={upiIdInput}
+                  onChange={(e) => setUpiIdInput(e.target.value)}
+                  placeholder="8877490845@spicepay"
+                  className="w-full bg-white border border-gray-300 rounded-sm px-2.5 py-1.5 text-xs text-slate-900 font-mono-acc font-bold"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                  UPI प्राप्तकर्ता नाम (Receiver Name):
+                </label>
+                <input
+                  type="text"
+                  value={upiReceiverNameInput}
+                  onChange={(e) => setUpiReceiverNameInput(e.target.value)}
+                  placeholder="Vikas Kumar"
+                  className="w-full bg-white border border-gray-300 rounded-sm px-2.5 py-1.5 text-xs text-slate-900 font-bold"
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-2.5 bg-[#2874f0] hover:bg-[#1258c7] text-white font-bold text-xs rounded-sm shadow-sm flex items-center justify-center gap-1.5 transition"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>कार्यालय पता व संस्थान विवरण सुरक्षित करें</span>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* SECTION 3: ANNOUNCEMENT MARQUEE TICKER */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3 shadow-sm">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+          <div>
+            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span>📢 शीर्ष स्क्रॉलिंग नोटिस व घोषणा पट्टी (Announcement Marquee Ticker)</span>
+            </h4>
+            <p className="text-xs text-slate-500">
+              यह टेक्स्ट वेबसाइट और मोबाइल के शीर्ष पीले बैनर पर लाइव स्क्रॉल करता है
+            </p>
+          </div>
+          <span className="text-[10px] bg-yellow-100 text-yellow-900 font-bold px-2 py-0.5 rounded border border-yellow-300">
+            LIVE TICKER
+          </span>
+        </div>
+
+        <form onSubmit={handleSaveAnnouncement} className="space-y-3">
+          <textarea
+            rows={2}
+            value={marqueeInput}
+            onChange={(e) => setMarqueeInput(e.target.value)}
+            placeholder="🔥 ZERO INVESTMENT WORK | ONE TIME 🆔 ACTIVATION CHARGE ₹249 ONLY..."
+            className="w-full bg-white border border-gray-300 rounded-sm p-3 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0] font-medium"
+            required
+          />
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="py-2 px-5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-sm shadow-xs flex items-center gap-1.5 transition"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>स्क्रॉलिंग नोटिस अपडेट करें</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* SECTION 4: PROMOTIONAL POSTERS & BANNERS */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+          <div>
+            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#fb641b]" />
+              <span>🖼️ प्रमोशनल पोस्टर व बैनर प्रबंधन (Promotional Posters)</span>
+            </h4>
+            <p className="text-xs text-slate-500">
+              वेबसाइट होमपेज पर छात्रों को आकर्षित करने वाले विशेष ऑफर्स और प्रमोशनल पोस्टर्स
+            </p>
+          </div>
+
+          <button
+            onClick={handleOpenAddPosterModal}
+            className="px-3.5 py-2 bg-[#fb641b] hover:bg-[#e85a14] text-white font-bold text-xs rounded-sm shadow-sm flex items-center gap-1.5 transition shrink-0"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>➕ नया प्रमोशनल पोस्टर जोड़ें</span>
+          </button>
+        </div>
+
+        {siteConfig.promotionalPosters.length === 0 ? (
+          <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 rounded-lg border border-gray-200">
+            कोई प्रमोशनल पोस्टर नहीं है। ऊपर दिए गए बटन से नया पोस्टर जोड़ें।
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {siteConfig.promotionalPosters.map((poster) => (
+              <div
+                key={poster.id}
+                className={`p-4 rounded-xl border transition ${
+                  poster.isActive ? 'bg-white border-blue-200 shadow-xs' : 'bg-slate-50 border-gray-200 opacity-70'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    {poster.badge && (
+                      <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded font-bold">
+                        {poster.badge}
+                      </span>
+                    )}
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                      poster.isActive ? 'bg-green-100 text-emerald-800' : 'bg-gray-200 text-slate-600'
+                    }`}>
+                      {poster.isActive ? 'सक्रिय (Active)' : 'निष्क्रिय'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleOpenEditPosterModal(poster)}
+                      className="p-1 text-[#2874f0] hover:bg-blue-50 rounded transition"
+                      title="एडिट करें"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeletePoster(poster.id)}
+                      className="p-1 text-red-600 hover:bg-red-50 rounded transition"
+                      title="पोस्टर हटाएं"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <h5 className="font-bold text-slate-900 text-sm leading-snug">{poster.title}</h5>
+                {poster.subtitle && (
+                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">{poster.subtitle}</p>
+                )}
+
+                {poster.imageUrl && (
+                  <div className="mt-2 h-28 rounded-lg overflow-hidden border border-gray-200 bg-slate-100">
+                    <img src={poster.imageUrl} alt={poster.title} className="w-full h-full object-cover" />
+                  </div>
+                )}
+
+                <div className="mt-3 pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-mono-acc text-[11px]">
+                    लिंक: <strong>{poster.ctaLink || 'register'}</strong>
+                  </span>
+                  <button
+                    onClick={() => handleTogglePosterActive(poster.id)}
+                    className="text-[11px] font-bold text-[#2874f0] hover:underline"
+                  >
+                    {poster.isActive ? 'निष्क्रिय करें' : 'सक्रिय करें'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* SECTION 5: SERVICES MANAGEMENT - ADD & REMOVE EXTRA SERVICES */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-emerald-600" />
+                <span>💼 सर्विसेज प्रबंधन (Services Management - Add & Remove Services)</span>
+              </h4>
+              <span className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold">
+                कुल: {siteConfig.services.length} सर्विसेज
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              यहाँ से आप कोई भी नई सर्विस जोड़ (Add) सकते हैं या किसी भी एक्स्ट्रा सर्विस को हटा (Remove/Delete) सकते हैं
+            </p>
+          </div>
+
+          <button
+            onClick={handleOpenAddServiceModal}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-sm shadow-sm flex items-center gap-1.5 transition shrink-0"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>➕ नई सर्विस जोड़ें (Add New Service)</span>
+          </button>
+        </div>
+
+        {siteConfig.services.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-500 bg-slate-50 rounded-lg border border-gray-200">
+            कोई सर्विस कॉन्फ़िगर नहीं है। ऊपर दिए गए बटन से नई सर्विस जोड़ें।
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {siteConfig.services.map((svc) => (
+              <div
+                key={svc.id}
+                className={`p-4 rounded-xl border flex flex-col justify-between transition ${
+                  svc.isActive ? 'bg-white border-gray-200 hover:border-blue-400 shadow-xs' : 'bg-slate-50 border-gray-200 opacity-60'
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] bg-blue-50 text-[#2874f0] border border-blue-200 px-2 py-0.5 rounded font-bold uppercase font-mono-acc">
+                        {svc.category}
+                      </span>
+                      {svc.badgeText && (
+                        <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded font-bold">
+                          {svc.badgeText}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleOpenEditServiceModal(svc)}
+                        className="p-1 text-[#2874f0] hover:bg-blue-50 rounded transition"
+                        title="सर्विस संपादित करें"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteService(svc.id, svc.title)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded transition"
+                        title="सर्विस डिलीट / रिमूव करें"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <h5 className="font-bold text-slate-900 text-sm">{svc.title}</h5>
+                  <div className="mt-1 mb-2">
+                    <span className="inline-block text-[11px] font-bold text-emerald-700 bg-green-50 px-2 py-0.5 rounded border border-green-200 font-mono-acc">
+                      {svc.commissionOrEarning}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">{svc.description}</p>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-500">कार्रवाई:</span>
+                    <span className="text-[11px] font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
+                      {svc.actionText} ({svc.actionLink || 'register'})
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => handleToggleServiceActive(svc.id)}
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded border ${
+                      svc.isActive
+                        ? 'bg-green-50 text-emerald-700 border-green-200'
+                        : 'bg-slate-100 text-slate-500 border-slate-300'
+                    }`}
+                  >
+                    {svc.isActive ? 'सक्रिय ✓' : 'निष्क्रिय ✕'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )}
+
+
+      {/* ========================================================================= */}
+      {/* SCREENSHOT PREVIEW & VERIFICATION MODAL (HIGH RESOLUTION & APPROVE/REJECT) */}
+      {/* ========================================================================= */}
+      {screenshotModalMember && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
+          <div className="bg-white border border-gray-200 rounded-xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-scaleUp">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3.5 bg-[#f1f2f4]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-md bg-[#2874f0] text-white flex items-center justify-center font-bold shadow-xs">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span>भुगतान रसीद व सदस्य सत्यापन (Payment Receipt & Verification)</span>
+                    <span className="font-mono-acc text-xs bg-white text-[#2874f0] px-2 py-0.5 rounded border border-gray-300 font-bold">
+                      {screenshotModalMember.accId}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    छात्र: <strong className="text-slate-900">{screenshotModalMember.fullName}</strong> • UTR: <strong className="font-mono-acc text-slate-900">{screenshotModalMember.utrNumber}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setScreenshotModalMember(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-md transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body: Split 2 Columns */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 overflow-y-auto flex-1 p-5 gap-6">
+              {/* LEFT: SCREENSHOT IMAGE VIEWER */}
+              <div className="lg:col-span-7 flex flex-col space-y-3">
+                <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-gray-200 text-xs">
+                  <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-[#2874f0]" />
+                    <span>अपलोड किया गया स्क्रीनशॉट</span>
+                  </span>
+                  
+                  {/* Zoom & View Controls */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setZoomLevel((z) => Math.max(0.6, z - 0.2))}
+                      className="p-1 bg-white border border-gray-200 rounded hover:bg-slate-100 text-slate-600"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-[11px] font-mono-acc text-slate-600 px-1 font-semibold">
+                      {Math.round(zoomLevel * 100)}%
+                    </span>
+                    <button
+                      onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.2))}
+                      className="p-1 bg-white border border-gray-200 rounded hover:bg-slate-100 text-slate-600"
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setZoomLevel(1)}
+                      className="px-2 py-0.5 bg-white border border-gray-200 rounded hover:bg-slate-100 text-[10px] font-bold text-slate-600"
+                      title="Reset"
+                    >
+                      100%
+                    </button>
+
+                    {screenshotModalMember.paymentScreenshotUrl && (
+                      <button
+                        onClick={() => {
+                          const w = window.open('');
+                          w?.document.write(`<img src="${screenshotModalMember.paymentScreenshotUrl}" style="max-width:100%; height:auto; margin:20px auto; display:block;"/>`);
+                        }}
+                        className="p-1 bg-white border border-gray-200 rounded hover:bg-slate-100 text-slate-600"
+                        title="नए टैब में खोलें"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* The Image Container */}
+                <div className="flex-1 bg-slate-100 border border-gray-200 rounded-xl p-3 min-h-[340px] max-h-[460px] overflow-auto flex items-center justify-center">
+                  {screenshotModalMember.paymentScreenshotUrl ? (
+                    <img
+                      src={screenshotModalMember.paymentScreenshotUrl}
+                      alt="Payment Receipt Screenshot"
+                      style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'center center' }}
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-md transition-transform duration-150"
+                    />
+                  ) : (
+                    <div className="text-center p-6 space-y-2">
+                      <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 mx-auto flex items-center justify-center border border-amber-200">
+                        <AlertTriangle className="w-6 h-6" />
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800">
+                        कोई स्क्रीनशॉट संलग्न नहीं किया गया है
+                      </h4>
+                      <p className="text-[11px] text-slate-500 max-w-xs">
+                        उपयोगकर्ता ने फॉर्म में केवल 12-अंकों का UPI UTR नंबर दर्ज किया है:
+                      </p>
+                      <span className="font-mono-acc text-sm font-bold bg-white text-[#2874f0] px-3 py-1 rounded border border-gray-200 inline-block">
+                        {screenshotModalMember.utrNumber}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT: STUDENT PROFILE & VERIFICATION STATUS */}
+              <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
+                <div className="space-y-3">
+                  <div className="bg-[#f1f2f4] p-3.5 rounded-xl border border-gray-200 space-y-2 text-xs">
+                    <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        सत्यापन विवरण (Verification Summary)
+                      </span>
+                      {screenshotModalMember.avatarUrl && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          फोटो संलग्न ✓
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Member Profile Photo Header in Modal */}
+                    <div className="flex items-center gap-3 bg-white p-2.5 rounded-lg border border-gray-200">
+                      {screenshotModalMember.avatarUrl ? (
+                        <img
+                          src={screenshotModalMember.avatarUrl}
+                          alt={screenshotModalMember.fullName}
+                          className="w-14 h-14 rounded-full object-cover border-2 border-[#2874f0] shadow-sm shrink-0"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-full bg-blue-100 text-[#2874f0] font-black text-base flex items-center justify-center border-2 border-blue-300 shrink-0">
+                          {(screenshotModalMember.fullName || 'M').substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <strong className="text-slate-900 text-sm block truncate">{screenshotModalMember.fullName}</strong>
+                        <span className="text-[#2874f0] font-mono-acc text-xs font-bold block">{screenshotModalMember.accId}</span>
+                        {screenshotModalMember.profileLink && (
+                          <a
+                            href={screenshotModalMember.profileLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-[#2874f0] hover:underline font-semibold mt-0.5"
+                          >
+                            <ExternalLink className="w-3 h-3 shrink-0" />
+                            <span className="truncate max-w-[180px]">{screenshotModalMember.profileLink}</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Personal QR code preview if provided */}
+                    {screenshotModalMember.personalQrUrl && (
+                      <div className="p-2.5 bg-purple-50/70 border border-purple-200 rounded-lg flex items-center gap-3">
+                        <img
+                          src={screenshotModalMember.personalQrUrl}
+                          alt="Personal QR"
+                          className="w-12 h-12 object-contain rounded bg-white p-1 border border-purple-300 shrink-0 shadow-xs"
+                        />
+                        <div className="text-[11px]">
+                          <span className="font-bold text-purple-900 block">सदस्य पर्सनल QR कोड</span>
+                          <span className="text-slate-600 block text-[10px]">डिजिटल ID कार्ड पर प्रदर्शित पर्सनल QR कोड</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">नाम:</span>
+                        <strong className="text-slate-900 text-xs">{screenshotModalMember.fullName}</strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Unique 🆔:</span>
+                        <strong className="text-[#2874f0] font-mono-acc text-xs">{screenshotModalMember.accId}</strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">सिस्टम प्लान:</span>
+                        <span className="font-bold text-slate-800">
+                          {screenshotModalMember.plan === 'SWIS' ? 'SWIS (3.30% रिचार्ज)' : 'TWIS (₹150 रेफर)'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">मोबाइल नंबर:</span>
+                        <span className="font-mono-acc font-semibold text-slate-800">{screenshotModalMember.mobile}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">योग्यता/कॉलेज:</span>
+                        <span className="text-slate-800">{screenshotModalMember.qualification || 'छात्र'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">शहर / राज्य:</span>
+                        <span className="text-slate-800">{screenshotModalMember.city}, {screenshotModalMember.state}</span>
+                      </div>
+                    </div>
+
+                    {/* UTR BOX WITH COPY BUTTON */}
+                    <div className="mt-2 p-2.5 bg-white rounded-lg border border-gray-200 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block font-semibold">12-अंकों का UPI UTR नंबर:</span>
+                        <span className="font-mono-acc font-black text-sm text-emerald-700">
+                          {screenshotModalMember.utrNumber}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(screenshotModalMember.utrNumber);
+                          alert('UTR नंबर क्लिपबोर्ड पर कॉपी हो गया!');
+                        }}
+                        className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded border border-gray-200 flex items-center gap-1"
+                        title="Copy UTR"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>कॉपी</span>
+                      </button>
+                    </div>
+
+                    {/* STATUS INDICATOR */}
+                    <div className="pt-2">
+                      <span className="text-[10px] text-slate-500 block mb-1">वर्तमान स्थिति:</span>
+                      {screenshotModalMember.status === 'verified' ? (
+                        <div className="p-2 bg-emerald-50 border border-emerald-200 rounded text-emerald-800 text-xs font-bold flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>✓ सत्यापित (Approved & Active)</span>
+                        </div>
+                      ) : screenshotModalMember.status === 'rejected' ? (
+                        <div className="p-2 bg-red-50 border border-red-200 rounded text-red-800 text-xs space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <XCircle className="w-4 h-4 text-red-600" />
+                            <span>✕ आवेदन अस्वीकृत (Rejected)</span>
+                          </div>
+                          {screenshotModalMember.rejectionReason && (
+                            <p className="text-[11px] text-red-700 font-semibold pl-5">
+                              कारण: {screenshotModalMember.rejectionReason}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-800 text-xs font-bold flex items-center gap-1.5">
+                          <AlertTriangle className="w-4 h-4 text-amber-600" />
+                          <span>⏳ सत्यापन लंबित (Awaiting Review)</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* SPONSOR & COMMISSION PAYOUT CARD (Crystal Clear Separation: User vs Sponsor) */}
+                  {(() => {
+                    const sponsorObj = members.find(
+                      (s) => (s.accId || '').toUpperCase() === (screenshotModalMember.sponsorId || '').toUpperCase() || s.mobile === screenshotModalMember.sponsorId
+                    );
+                    const hasSponsor = Boolean(screenshotModalMember.sponsorId && screenshotModalMember.sponsorId !== 'DIRECT' && screenshotModalMember.sponsorId !== 'ADMIN');
+
+                    return (
+                      <div className="p-3 bg-amber-50/80 border-2 border-amber-300 rounded-xl space-y-2 text-xs">
+                        <div className="flex items-center justify-between border-b border-amber-200 pb-1.5">
+                          <div className="flex items-center gap-1.5 text-amber-950 font-bold">
+                            <Users className="w-4 h-4 text-amber-700" />
+                            <span>🤝 स्पॉन्सरशिप व ₹150 कमीशन विवरण</span>
+                          </div>
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                            screenshotModalMember.sponsorCommissionStatus === 'paid'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              : hasSponsor
+                              ? 'bg-orange-100 text-orange-800 border border-orange-300'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {screenshotModalMember.sponsorCommissionStatus === 'paid'
+                              ? '✓ ₹150 कमीशन चुकता'
+                              : hasSponsor
+                              ? '⏳ ₹150 कमीशन देय (Pending)'
+                              : '🏢 डायरेक्ट (नो कमीशन)'}
+                          </span>
+                        </div>
+
+                        {hasSponsor ? (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2 bg-white p-2.5 rounded-lg border border-amber-200">
+                              <div>
+                                <span className="text-[10px] text-slate-500 block">स्पॉन्सर का नाम:</span>
+                                <strong className="text-slate-900 text-xs block truncate">
+                                  {screenshotModalMember.sponsorName || sponsorObj?.fullName || 'अज्ञात स्पॉन्सर'}
+                                </strong>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-500 block">स्पॉन्सर 🆔 (ACC ID):</span>
+                                <span className="font-mono-acc font-black text-[#2874f0] text-xs block">
+                                  {screenshotModalMember.sponsorId}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-500 block">स्पॉन्सर मोबाइल व चैट:</span>
+                                <div className="flex items-center gap-1 text-slate-800 font-mono text-[11px]">
+                                  <span>{sponsorObj?.mobile || 'N/A'}</span>
+                                  {sponsorObj?.mobile && (
+                                    <a
+                                      href={`https://api.whatsapp.com/send?phone=91${sponsorObj.mobile}&text=${encodeURIComponent(
+                                        `नमस्ते ${sponsorObj.fullName}, आपके रेफरल ${screenshotModalMember.fullName} (${screenshotModalMember.accId}) का सत्यापन हो गया है। ₹150 कमीशन स्थिति: ${screenshotModalMember.sponsorCommissionStatus === 'paid' ? 'चुकता' : 'प्रक्रियाधीन'}।`
+                                      )}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-emerald-600 hover:text-emerald-700 p-0.5"
+                                      title="स्पॉन्सर को WhatsApp मैसेज"
+                                    >
+                                      <MessageCircle className="w-3.5 h-3.5" />
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-500 block">देय रेफरल बोनस:</span>
+                                <span className="font-bold text-emerald-700 text-xs">₹150 (TWIS Direct Bonus)</span>
+                              </div>
+                            </div>
+
+                            {/* Sponsor's Registered Payout Bank/UPI Details */}
+                            {sponsorObj?.payoutDetails ? (
+                              <div className="bg-emerald-50/90 p-2.5 rounded-lg border border-emerald-300 text-[11px] space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <strong className="text-emerald-950 font-bold">
+                                    स्पॉन्सर का पंजीकृत खाता ({sponsorObj.payoutDetails.holderRelation || 'Self'}):
+                                  </strong>
+                                  <span className="text-[10px] text-slate-600 font-semibold">{sponsorObj.payoutDetails.holderName}</span>
+                                </div>
+                                {sponsorObj.payoutDetails.upiId && (
+                                  <div className="flex items-center justify-between bg-white px-2 py-1 rounded border border-emerald-200">
+                                    <span className="font-mono font-bold text-emerald-800">
+                                      UPI ID: {sponsorObj.payoutDetails.upiId}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(sponsorObj.payoutDetails?.upiId || '');
+                                        alert('स्पॉन्सर की UPI ID कॉपी हो गई: ' + sponsorObj.payoutDetails?.upiId);
+                                      }}
+                                      className="px-2 py-0.5 bg-[#2874f0] text-white text-[10px] font-bold rounded shadow-xs"
+                                    >
+                                      कॉपी UPI
+                                    </button>
+                                  </div>
+                                )}
+                                {sponsorObj.payoutDetails.accountNumber && (
+                                  <div className="text-[10px] text-slate-700 bg-white p-1.5 rounded border border-gray-200 font-mono">
+                                    बैंक: {sponsorObj.payoutDetails.bankName || 'N/A'} | खाता: {sponsorObj.payoutDetails.accountNumber} | IFSC: {sponsorObj.payoutDetails.ifsc}
+                                  </div>
+                                )}
+                              </div>
+                            ) : sponsorObj ? (
+                              <div className="bg-white p-2 rounded border border-amber-200 text-[11px] flex items-center justify-between">
+                                <div>
+                                  <span className="text-slate-500 block text-[10px]">स्पॉन्सर डिफ़ॉल्ट मोबाइल UPI:</span>
+                                  <span className="font-mono font-bold text-slate-800">{sponsorObj.mobile}@upi</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`${sponsorObj.mobile}@upi`);
+                                    alert('स्पॉन्सर मोबाइल UPI कॉपी हो गया!');
+                                  }}
+                                  className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded border border-gray-300"
+                                >
+                                  कॉपी
+                                </button>
+                              </div>
+                            ) : null}
+
+                            {/* 1-Click Commission Action */}
+                            <div className="pt-1">
+                              {screenshotModalMember.sponsorCommissionStatus === 'paid' ? (
+                                <div className="w-full p-2 bg-emerald-100/80 border border-emerald-300 rounded text-emerald-900 text-center font-bold text-xs flex items-center justify-center gap-1.5">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                                  <span>₹150 कमीशन भुगतान किया जा चुका है (Ref: {screenshotModalMember.sponsorCommissionUtr || 'PAID'})</span>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCommissionPayMember(screenshotModalMember);
+                                    setCommissionUtrInput(`COMM-${Date.now().toString().slice(-8)}`);
+                                  }}
+                                  className="w-full py-2 bg-[#fb641b] hover:bg-[#e85a14] text-white font-bold text-xs rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition"
+                                >
+                                  <DollarSign className="w-4 h-4" />
+                                  <span>स्पॉन्सर को ₹150 कमीशन भुगतान दर्ज करें (Pay ₹150)</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-2 bg-white rounded border border-gray-200 text-slate-600 text-[11px]">
+                            यह सदस्य कंपनी डायरेक्ट (बिना किसी स्पॉन्सर के) जुड़ा है। कोई रेफरल कमीशन देय नहीं है।
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* ACTION BUTTONS IN MODAL */}
+                <div className="space-y-2 pt-2 border-t border-gray-100">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleApproveMember(screenshotModalMember)}
+                      className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-sm shadow-sm flex items-center justify-center gap-1.5 transition"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>रसीद स्वीकृत करें (Approve)</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleOpenRejectModal(screenshotModalMember)}
+                      className="py-2.5 px-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-sm shadow-sm flex items-center justify-center gap-1.5 transition"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>अस्वीकृत करें (Reject)</span>
+                    </button>
+                  </div>
+
+                  {/* Direct WhatsApp notify button */}
+                  <a
+                    href={`https://api.whatsapp.com/send?phone=91${screenshotModalMember.mobile}&text=${encodeURIComponent(
+                      screenshotModalMember.status === 'verified'
+                        ? `नमस्ते ${screenshotModalMember.fullName} ji,\nबधाई हो! आपकी Achievers Club Community (ACC) 🆔: ${screenshotModalMember.accId} का ₹249 सत्यापन स्वीकृत हो चुका है।\nआपका Real App Download Link:\nhttps://achieversclub.in/download/acc-official-v2.apk\n\nशुभकामनाएं, Start Young Retire Young!`
+                        : screenshotModalMember.status === 'rejected'
+                        ? `नमस्ते ${screenshotModalMember.fullName} ji,\nAchievers Club Community (ACC) में आपका ₹249 का आवेदन (ID: ${screenshotModalMember.accId}) सत्यापित नहीं हो सका।\nकारण: ${screenshotModalMember.rejectionReason || 'अमान्य UTR या रसीद'}\nकृपया सही पेमेंट रसीद भेजें।`
+                        : `नमस्ते ${screenshotModalMember.fullName} ji,\nAchievers Club Community (ACC) में आपका ₹249 का रजिस्ट्रेशन प्राप्त हुआ है (ID: ${screenshotModalMember.accId}, UTR: ${screenshotModalMember.utrNumber})। एडमिन द्वारा सत्यापन प्रक्रियाधीन है।`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold rounded-sm flex items-center justify-center gap-1.5 transition shadow-xs"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>WhatsApp पर छात्र को सूचित करें</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* REJECTION REASON MODAL */}
+      {/* ========================================================================= */}
+      {rejectionModalMember && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-gray-200 rounded-xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-scaleUp">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2 text-red-600">
+                <XCircle className="w-5 h-5" />
+                <h3 className="text-sm font-bold text-slate-900">भुगतान अस्वीकृति (Reject Application)</h3>
+              </div>
+              <button
+                onClick={() => setRejectionModalMember(null)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-[#f1f2f4] p-3 rounded-lg border border-gray-200 text-xs space-y-1">
+              <span className="text-slate-500 block">सदस्य:</span>
+              <strong className="text-slate-900 block">{rejectionModalMember.fullName} ({rejectionModalMember.accId})</strong>
+              <span className="text-slate-600 block font-mono-acc">UTR: {rejectionModalMember.utrNumber} • फोन: {rejectionModalMember.mobile}</span>
+            </div>
+
+            <form onSubmit={handleConfirmReject} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  अस्वीकृति का प्राथमिक कारण चुनें:
+                </label>
+                <select
+                  value={rejectionReasonInput}
+                  onChange={(e) => setRejectionReasonInput(e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-red-500"
+                >
+                  <option value="अमान्य या गलत UPI UTR नंबर">अमान्य या गलत UPI UTR नंबर</option>
+                  <option value="₹249 का कोई वास्तविक भुगतान प्राप्त नहीं हुआ">₹249 का कोई वास्तविक भुगतान प्राप्त नहीं हुआ</option>
+                  <option value="स्क्रीनशॉट अस्पष्ट, कटा हुआ या फर्जी प्रतीत होता है">स्क्रीनशॉट अस्पष्ट, कटा हुआ या फर्जी प्रतीत होता है</option>
+                  <option value="अन्य खाते में किया गया भुगतान (गलत UPI ID)">अन्य खाते में किया गया भुगतान (गलत UPI ID)</option>
+                  <option value="अन्य कारण (Custom)">अन्य कारण (विवरण लिखें)...</option>
+                </select>
+              </div>
+
+              {rejectionReasonInput === 'अन्य कारण (Custom)' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    कस्टम कारण लिखें:
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={customReasonText}
+                    onChange={(e) => setCustomReasonText(e.target.value)}
+                    placeholder="छात्र को कारण बताएं..."
+                    className="w-full bg-white border border-gray-300 rounded-sm p-2 text-xs text-slate-900 focus:outline-none focus:border-red-500"
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setRejectionModalMember(null)}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-sm border border-gray-200"
+                >
+                  रद्द करें
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-sm shadow-sm"
+                >
+                  अस्वीकृत करें (Confirm Reject)
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* CHANGE ADMIN PASSWORD MODAL */}
+      {/* ========================================================================= */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-gray-200 rounded-xl max-w-sm w-full p-5 space-y-4 shadow-xl animate-scaleUp">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2 text-[#2874f0]">
+                <Key className="w-5 h-5" />
+                <h3 className="text-sm font-bold text-slate-900">एडमिन सुरक्षा पासवर्ड बदलें</h3>
+              </div>
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {passwordModalError && (
+              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                <span>{passwordModalError}</span>
+              </div>
+            )}
+
+            {passwordModalMsg && (
+              <div className="p-2.5 bg-green-50 border border-green-200 text-emerald-800 text-xs rounded flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{passwordModalMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  वर्तमान एडमिन पासवर्ड
+                </label>
+                <input
+                  type="password"
+                  value={currentPassInput}
+                  onChange={(e) => setCurrentPassInput(e.target.value)}
+                  placeholder="मौजूदा पासवर्ड लिखें"
+                  className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  नया एडमिन पासवर्ड (New Password)
+                </label>
+                <input
+                  type="password"
+                  value={newPassInput}
+                  onChange={(e) => setNewPassInput(e.target.value)}
+                  placeholder="कम से कम 6 अक्षर"
+                  className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordModal(false)}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-sm border border-gray-200"
+                >
+                  रद्द करें
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-[#2874f0] hover:bg-[#1258c7] text-white text-xs font-bold rounded-sm shadow-sm"
+                >
+                  पासवर्ड सेव करें
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Real App Link Share Modal */}
+      {linkModalMember && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-gray-200 rounded-xl max-w-md w-full p-5 space-y-4 shadow-xl animate-scaleUp">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Send className="w-5 h-5 text-[#2874f0]" />
+                <h3 className="text-sm font-bold text-slate-900">Real App Link शेयर करें</h3>
+              </div>
+              <button
+                onClick={() => setLinkModalMember(null)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-[#f1f2f4] p-3 rounded-lg border border-gray-200 text-xs space-y-1">
+              <p className="text-slate-500">अनुमोदित सदस्य:</p>
+              <p className="text-slate-900 font-bold text-sm">{linkModalMember.fullName}</p>
+              <div className="flex items-center gap-2 text-slate-600">
+                <span className="font-mono-acc text-[#2874f0] font-bold">{linkModalMember.accId}</span>
+                <span>•</span>
+                <span>{linkModalMember.mobile}</span>
+              </div>
+            </div>
+
+            {linkShareSuccess && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-sm flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{linkShareSuccess}</span>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1">
+                Real Application Download / APK URL:
+              </label>
+              <input
+                type="text"
+                value={customAppLink}
+                onChange={(e) => setCustomAppLink(e.target.value)}
+                placeholder="https://achieversclub.in/app.apk"
+                className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0] focus:ring-1 focus:ring-[#2874f0] font-mono-acc"
+              />
+            </div>
+
+            <div className="text-[11px] text-slate-600 bg-slate-50 p-3 rounded-lg border border-gray-200">
+              <p className="font-semibold text-slate-800 mb-1">प्रत्यक्ष शेयर विकल्प (Direct Delivery):</p>
+              <div className="flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const msg = encodeURIComponent(
+                      `Namaste ${linkModalMember.fullName} ji,\n` +
+                      `Aapka Achievers Club Community (ACC) ID: ${linkModalMember.accId} verify ho chuka hai!\n` +
+                      `Aapka official Real Application Download Link ye hai:\n` +
+                      `${customAppLink}\n\n` +
+                      `Shubhkaamnaayein, Start Young Retire Young!`
+                    );
+                    window.open(`https://api.whatsapp.com/send?phone=91${linkModalMember.mobile}&text=${msg}`, '_blank');
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-sm font-bold text-xs transition shadow-xs"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>WhatsApp पर सीधे लिंक भेजें</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const subject = encodeURIComponent(`Achievers Club Community - Official Real App Download Link (${linkModalMember.accId})`);
+                    const body = encodeURIComponent(
+                      `Hello ${linkModalMember.fullName},\n\n` +
+                      `Congratulations! Your ACC Account ${linkModalMember.accId} has been successfully verified.\n\n` +
+                      `Here is your official Real App Download Link:\n${customAppLink}\n\n` +
+                      `Best Regards,\nAchievers Club Community Team`
+                    );
+                    window.open(`mailto:${linkModalMember.email}?subject=${subject}&body=${body}`, '_blank');
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 bg-[#2874f0] hover:bg-[#1258c7] text-white rounded-sm font-bold text-xs transition shadow-xs"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>Email पर लिंक प्रेषित करें</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setLinkModalMember(null)}
+                className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-sm border border-gray-200"
+              >
+                रद्द करें
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApproveAndSendAppLink(linkModalMember)}
+                className="flex-1 py-2 bg-[#fb641b] hover:bg-[#e85a14] text-white text-xs font-bold rounded-sm shadow-sm"
+              >
+                पोर्टल में लिंक सुरक्षित करें
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Member Details Modal */}
+      {selectedMember && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-gray-200 rounded-xl max-w-lg w-full p-5 space-y-4 shadow-xl animate-scaleUp">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-900">सदस्य संपूर्ण रिकॉर्ड (Full Details)</h3>
+              <button
+                onClick={() => setSelectedMember(null)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="grid grid-cols-2 gap-2 bg-[#f1f2f4] p-3 rounded-lg border border-gray-200">
+                <div>
+                  <span className="text-slate-500 block">पूरा नाम:</span>
+                  <strong className="text-slate-900 text-sm">{selectedMember.fullName}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Unique 🆔:</span>
+                  <strong className="text-[#2874f0] font-mono-acc text-sm">{selectedMember.accId}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">मोबाइल नंबर:</span>
+                  <span className="font-mono-acc text-slate-800">{selectedMember.mobile}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">ईमेल:</span>
+                  <span className="text-slate-800">{selectedMember.email}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">योग्यता:</span>
+                  <span className="text-slate-800">{selectedMember.qualification}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">सिस्टम प्लान:</span>
+                  <span className="text-[#2874f0] font-bold">{selectedMember.plan}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">शहर व राज्य:</span>
+                  <span className="text-slate-800">
+                    {selectedMember.city}, {selectedMember.state}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">पिनकोड:</span>
+                  <span className="font-mono-acc text-slate-800">{selectedMember.pincode}</span>
+                </div>
+              </div>
+
+              <div className="bg-[#f1f2f4] p-3 rounded-lg border border-gray-200">
+                <span className="text-slate-500 block">पता (Address):</span>
+                <span className="text-slate-800">{selectedMember.address || 'Not specified'}</span>
+              </div>
+
+              {/* Registered Payout / Bank / UPI Details */}
+              {selectedMember.payoutDetails && (
+                <div className="bg-emerald-50/70 p-3 rounded-lg border border-emerald-200 space-y-1">
+                  <span className="text-emerald-800 font-bold block text-xs">
+                    पंजीकृत पेआउट खाता (
+                    {selectedMember.payoutDetails.holderRelation === 'Father'
+                      ? 'पिताजी का खाता'
+                      : selectedMember.payoutDetails.holderRelation === 'Mother'
+                      ? 'माताजी का खाता'
+                      : selectedMember.payoutDetails.holderRelation === 'Guardian'
+                      ? 'अभिभावक का खाता'
+                      : 'खुद का खाता'}
+                    ):
+                  </span>
+                  <div className="text-xs text-slate-800 space-y-0.5">
+                    <p>खाता धारक: <strong>{selectedMember.payoutDetails.holderName}</strong></p>
+                    {selectedMember.payoutDetails.upiId && (
+                      <p>UPI ID: <span className="font-mono-acc font-bold text-emerald-800">{selectedMember.payoutDetails.upiId}</span></p>
+                    )}
+                    {selectedMember.payoutDetails.accountNumber && (
+                      <p>Bank: {selectedMember.payoutDetails.bankName || 'N/A'} · A/C: <span className="font-mono-acc font-bold">{selectedMember.payoutDetails.accountNumber}</span> · IFSC: {selectedMember.payoutDetails.ifsc || 'N/A'}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-[#f1f2f4] p-3 rounded-lg border border-gray-200">
+                <span className="text-slate-500 block">पेमेंट UTR / Transaction No.:</span>
+                <span className="font-mono-acc text-emerald-700 font-bold text-sm">
+                  {selectedMember.utrNumber}
+                </span>
+                <span className="text-[11px] text-slate-500 block mt-0.5">
+                  ₹249 Activation Charge • Date: {selectedMember.paymentDate}
+                </span>
+              </div>
+
+              {selectedMember.paymentScreenshotUrl && (
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-[#2874f0]" />
+                    <span className="text-xs font-bold text-slate-800">भुगतान स्क्रीनशॉट रसीद संलग्न है</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setScreenshotModalMember(selectedMember);
+                      setSelectedMember(null);
+                    }}
+                    className="px-2.5 py-1 bg-[#2874f0] text-white text-[11px] font-bold rounded shadow-xs"
+                  >
+                    रसीद देखें
+                  </button>
+                </div>
+              )}
+
+              {selectedMember.realAppLink && (
+                <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200">
+                  <span className="text-emerald-700 font-bold block text-[11px]">
+                    असाइन किया गया Real App Link:
+                  </span>
+                  <span className="font-mono-acc text-xs text-slate-800 break-all">
+                    {selectedMember.realAppLink}
+                  </span>
+                </div>
+              )}
+
+              {/* SPONSOR & COMMISSION CARD IN SELECTED MEMBER MODAL */}
+              {(() => {
+                const sponsorObj = members.find(
+                  (s) => (s.accId || '').toUpperCase() === (selectedMember.sponsorId || '').toUpperCase() || s.mobile === selectedMember.sponsorId
+                );
+                const hasSponsor = Boolean(selectedMember.sponsorId && selectedMember.sponsorId !== 'DIRECT' && selectedMember.sponsorId !== 'ADMIN');
+
+                return (
+                  <div className="p-3 bg-amber-50/80 border-2 border-amber-300 rounded-xl space-y-2 text-xs">
+                    <div className="flex items-center justify-between border-b border-amber-200 pb-1.5">
+                      <div className="flex items-center gap-1.5 text-amber-950 font-bold">
+                        <Users className="w-4 h-4 text-amber-700" />
+                        <span>🤝 स्पॉन्सरशिप व ₹150 कमीशन विवरण</span>
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                        selectedMember.sponsorCommissionStatus === 'paid'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : hasSponsor
+                          ? 'bg-orange-100 text-orange-800 border border-orange-300'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {selectedMember.sponsorCommissionStatus === 'paid'
+                          ? '✓ ₹150 कमीशन चुकता'
+                          : hasSponsor
+                          ? '⏳ ₹150 कमीशन देय (Pending)'
+                          : '🏢 डायरेक्ट (नो कमीशन)'}
+                      </span>
+                    </div>
+
+                    {hasSponsor ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2 bg-white p-2.5 rounded-lg border border-amber-200">
+                          <div>
+                            <span className="text-[10px] text-slate-500 block">स्पॉन्सर नाम:</span>
+                            <strong className="text-slate-900 text-xs block truncate">
+                              {selectedMember.sponsorName || sponsorObj?.fullName || 'अज्ञात'}
+                            </strong>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block">स्पॉन्सर ACC 🆔:</span>
+                            <span className="font-mono-acc font-black text-[#2874f0] text-xs block">
+                              {selectedMember.sponsorId}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block">स्पॉन्सर फोन:</span>
+                            <div className="flex items-center gap-1 text-slate-800 font-mono text-[11px]">
+                              <span>{sponsorObj?.mobile || 'N/A'}</span>
+                              {sponsorObj?.mobile && (
+                                <a
+                                  href={`https://api.whatsapp.com/send?phone=91${sponsorObj.mobile}&text=${encodeURIComponent(
+                                    `नमस्ते ${sponsorObj.fullName}, आपके रेफरल ${selectedMember.fullName} (${selectedMember.accId}) का सत्यापन हो गया है। ₹150 कमीशन स्थिति: ${selectedMember.sponsorCommissionStatus === 'paid' ? 'चुकता' : 'प्रक्रियाधीन'}।`
+                                  )}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-emerald-600 hover:text-emerald-700"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 block">देय कमीशन:</span>
+                            <span className="font-bold text-emerald-700 text-xs">₹150 डायरेक्ट बोनस</span>
+                          </div>
+                        </div>
+
+                        {sponsorObj?.payoutDetails && (
+                          <div className="bg-emerald-50/90 p-2.5 rounded-lg border border-emerald-300 text-[11px] space-y-1">
+                            <span className="text-emerald-950 font-bold block">
+                              स्पॉन्सर भुगतान खाता ({sponsorObj.payoutDetails.holderRelation || 'Self'} - {sponsorObj.payoutDetails.holderName}):
+                            </span>
+                            {sponsorObj.payoutDetails.upiId && (
+                              <div className="flex items-center justify-between bg-white px-2 py-1 rounded border border-emerald-200">
+                                <span className="font-mono font-bold text-emerald-800">
+                                  UPI: {sponsorObj.payoutDetails.upiId}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(sponsorObj.payoutDetails?.upiId || '');
+                                    alert('स्पॉन्सर UPI ID कॉपी हो गई: ' + sponsorObj.payoutDetails?.upiId);
+                                  }}
+                                  className="px-2 py-0.5 bg-[#2874f0] text-white text-[10px] font-bold rounded"
+                                >
+                                  कॉपी UPI
+                                </button>
+                              </div>
+                            )}
+                            {sponsorObj.payoutDetails.accountNumber && (
+                              <div className="text-[10px] text-slate-700 bg-white p-1.5 rounded border border-gray-200 font-mono">
+                                बैंक: {sponsorObj.payoutDetails.bankName || 'N/A'} | खाता: {sponsorObj.payoutDetails.accountNumber} | IFSC: {sponsorObj.payoutDetails.ifsc}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="pt-1">
+                          {selectedMember.sponsorCommissionStatus === 'paid' ? (
+                            <div className="w-full p-2 bg-emerald-100/80 border border-emerald-300 rounded text-emerald-900 text-center font-bold text-xs">
+                              ✓ ₹150 कमीशन चुकता (Ref: {selectedMember.sponsorCommissionUtr || 'PAID'})
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCommissionPayMember(selectedMember);
+                                setCommissionUtrInput(`COMM-${Date.now().toString().slice(-8)}`);
+                              }}
+                              className="w-full py-2 bg-[#fb641b] hover:bg-[#e85a14] text-white font-bold text-xs rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition"
+                            >
+                              <DollarSign className="w-4 h-4" />
+                              <span>स्पॉन्सर को ₹150 कमीशन भुगतान दर्ज करें (Pay ₹150)</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-2 bg-white rounded border border-gray-200 text-slate-600 text-[11px]">
+                        कंपनी डायरेक्ट (नो स्पॉन्सर) - कोई कमीशन देय नहीं है।
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="flex justify-between items-center gap-2 pt-2 border-t border-gray-100">
+              <button
+                onClick={() => {
+                  setMemberSecurityModal(selectedMember);
+                  setMemberNewPasswordInput('acc@' + Math.floor(1000 + Math.random() * 9000));
+                  setMemberSecurityMsg('');
+                }}
+                className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold rounded-sm border border-amber-300 flex items-center gap-1"
+                title="सुरक्षा उत्तर व पासवर्ड रीसेट करें"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>सुरक्षा/पासवर्ड रीसेट</span>
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setLinkModalMember(selectedMember);
+                    setSelectedMember(null);
+                  }}
+                  className="px-4 py-2 bg-[#fb641b] hover:bg-[#e85a14] text-white text-xs font-bold rounded-sm flex items-center gap-1.5 shadow-sm"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Real App Link</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedMember(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-sm border border-gray-200"
+                >
+                  बंद करें
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ADD / EDIT SERVICE MODAL */}
+      {/* ========================================================================= */}
+      {showServiceModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-gray-200 rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 space-y-4 shadow-2xl animate-scaleUp">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2 text-emerald-600">
+                <PlusCircle className="w-5 h-5" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  {editingServiceId ? 'सर्विस विवरण संपादित करें (Edit Service)' : 'नई सर्विस जोड़ें (Add New Service)'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowServiceModal(false)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveService} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  सर्विस का नाम (Service Title):
+                </label>
+                <input
+                  type="text"
+                  value={serviceTitleInput}
+                  onChange={(e) => setServiceTitleInput(e.target.value)}
+                  placeholder="उदा. फास्टैग व मेट्रो रिचार्ज / क्रेडिट कार्ड बिल"
+                  className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0] font-bold"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    श्रेणी (Category):
+                  </label>
+                  <select
+                    value={serviceCategoryInput}
+                    onChange={(e) => setServiceCategoryInput(e.target.value as any)}
+                    className="w-full bg-white border border-gray-300 rounded-sm px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+                  >
+                    <option value="RECHARGE">RECHARGE (रिचार्ज)</option>
+                    <option value="REFERRAL">REFERRAL (रेफरल)</option>
+                    <option value="UTILITY">UTILITY (बिल पेमेंट्स)</option>
+                    <option value="COMMUNITY">COMMUNITY (कम्युनिटी/ट्रेनिंग)</option>
+                    <option value="EXTRA">EXTRA (अन्य विशेष सेवा)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    कमीशन / अर्निंग टैग:
+                  </label>
+                  <input
+                    type="text"
+                    value={serviceCommissionInput}
+                    onChange={(e) => setServiceCommissionInput(e.target.value)}
+                    placeholder="उदा. 3.30% फिक्स्ड / ₹150 प्रति साथी"
+                    className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    बैज टैग (Badge Text):
+                  </label>
+                  <input
+                    type="text"
+                    value={serviceBadgeInput}
+                    onChange={(e) => setServiceBadgeInput(e.target.value)}
+                    placeholder="उदा. NEW, HOT, POPULAR"
+                    className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    प्रतीक आइकॉन (Icon):
+                  </label>
+                  <select
+                    value={serviceIconInput}
+                    onChange={(e) => setServiceIconInput(e.target.value)}
+                    className="w-full bg-white border border-gray-300 rounded-sm px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+                  >
+                    <option value="Zap">⚡ Zap (बिजली/फास्ट)</option>
+                    <option value="Users">👥 Users (टीम/रेफरल)</option>
+                    <option value="CreditCard">💳 CreditCard (कार्ड/बिल)</option>
+                    <option value="BookOpen">📖 BookOpen (शिक्षा/ट्रेनिंग)</option>
+                    <option value="Smartphone">📱 Smartphone (मोबाइल ऐप)</option>
+                    <option value="Sparkles">✨ Sparkles (स्पेशल)</option>
+                    <option value="Shield">🛡️ Shield (सुरक्षित)</option>
+                    <option value="Wallet">👛 Wallet (वॉलेट/कमाई)</option>
+                    <option value="Award">🏆 Award (पुरस्कार/सम्मान)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  विवरण (Service Description):
+                </label>
+                <textarea
+                  rows={2}
+                  value={serviceDescriptionInput}
+                  onChange={(e) => setServiceDescriptionInput(e.target.value)}
+                  placeholder="सर्विस का पूरा विवरण लिखें..."
+                  className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    बटन टेक्स्ट (Action Button Text):
+                  </label>
+                  <input
+                    type="text"
+                    value={serviceActionTextInput}
+                    onChange={(e) => setServiceActionTextInput(e.target.value)}
+                    placeholder="उदा. ज्वाइन करें / रिचार्ज करें"
+                    className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    बटन लिंक / एक्शन (Action Target):
+                  </label>
+                  <select
+                    value={serviceActionLinkInput}
+                    onChange={(e) => setServiceActionLinkInput(e.target.value)}
+                    className="w-full bg-white border border-gray-300 rounded-sm px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2874f0]"
+                  >
+                    <option value="register">रजिस्ट्रेशन फॉर्म (register)</option>
+                    <option value="calculator">रिचार्ज कैलकुलेटर (calculator)</option>
+                    <option value="dashboard">विद्यार्थी डैशबोर्ड (dashboard)</option>
+                    <option value="video">ट्रेनिंग वीडियो (video)</option>
+                    <option value="contact">सपोर्ट हेल्पडेस्क (contact)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="bg-[#f1f2f4] p-3 rounded-lg border border-gray-200">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={serviceIsActiveInput}
+                    onChange={(e) => setServiceIsActiveInput(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded"
+                  />
+                  <span>यह सर्विस होमपेज व डैशबोर्ड पर लाइव सक्रिय रखें (Active Service)</span>
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowServiceModal(false)}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-sm border border-gray-200 flex items-center justify-center gap-1.5"
+                >
+                  <X className="w-4 h-4" />
+                  <span>रद्द करें</span>
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-sm shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>सर्विस सुरक्षित करें (Save Service)</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ADD / EDIT PROMOTIONAL POSTER MODAL */}
+      {/* ========================================================================= */}
+      {showPosterModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-gray-200 rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 space-y-4 shadow-2xl animate-scaleUp">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2 text-[#fb641b]">
+                <Sparkles className="w-5 h-5" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  {editingPosterId ? 'प्रमोशनल पोस्टर संपादित करें' : 'नया प्रमोशनल पोस्टर जोड़ें'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowPosterModal(false)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePoster} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  पोस्टर शीर्षक / मुख्य संदेश (Title):
+                </label>
+                <input
+                  type="text"
+                  value={posterTitleInput}
+                  onChange={(e) => setPosterTitleInput(e.target.value)}
+                  placeholder="उदा. 🔥 ZERO INVESTMENT WORK | ONE TIME 🆔 ₹249"
+                  className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#fb641b] font-bold"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  उप-शीर्षक / विवरण (Subtitle / Description):
+                </label>
+                <textarea
+                  rows={2}
+                  value={posterSubtitleInput}
+                  onChange={(e) => setPosterSubtitleInput(e.target.value)}
+                  placeholder="विस्तृत ऑफर विवरण लिखें..."
+                  className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#fb641b]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    बैज टैग (Badge):
+                  </label>
+                  <input
+                    type="text"
+                    value={posterBadgeInput}
+                    onChange={(e) => setPosterBadgeInput(e.target.value)}
+                    placeholder="SPECIAL OFFER / FOR STUDENTS"
+                    className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#fb641b]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    बटन टेक्स्ट (Button CTA Text):
+                  </label>
+                  <input
+                    type="text"
+                    value={posterCtaTextInput}
+                    onChange={(e) => setPosterCtaTextInput(e.target.value)}
+                    placeholder="उदा. अभी रजिस्टर करें (₹249)"
+                    className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#fb641b]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    बटन लिंक (Target Action):
+                  </label>
+                  <select
+                    value={posterCtaLinkInput}
+                    onChange={(e) => setPosterCtaLinkInput(e.target.value)}
+                    className="w-full bg-white border border-gray-300 rounded-sm px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#fb641b]"
+                  >
+                    <option value="register">रजिस्ट्रेशन (register)</option>
+                    <option value="video">ट्रेनिंग वीडियो (video)</option>
+                    <option value="calculator">कैलकुलेटर (calculator)</option>
+                    <option value="dashboard">डैशबोर्ड (dashboard)</option>
+                    <option value="contact">सपोर्ट (contact)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    पोस्टर छवि URL (Image URL):
+                  </label>
+                  <input
+                    type="text"
+                    value={posterImageUrlInput}
+                    onChange={(e) => setPosterImageUrlInput(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#fb641b] font-mono-acc"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-[#f1f2f4] p-3 rounded-lg border border-gray-200">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={posterIsActiveInput}
+                    onChange={(e) => setPosterIsActiveInput(e.target.checked)}
+                    className="w-4 h-4 text-[#fb641b] rounded"
+                  />
+                  <span>इस पोस्टर को होमपेज पर तुरंत सक्रिय रखें (Active Poster)</span>
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowPosterModal(false)}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-sm border border-gray-200 flex items-center justify-center gap-1.5"
+                >
+                  <X className="w-4 h-4" />
+                  <span>रद्द करें</span>
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-[#fb641b] hover:bg-[#e85a14] text-white text-xs font-bold rounded-sm shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>पोस्टर सुरक्षित करें (Save Poster)</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* COMMISSION PAY MODAL (Record ₹150 Commission to Sponsor) */}
+      {/* ========================================================================= */}
+      {commissionPayMember && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-gray-200 rounded-xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-scaleUp">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2 text-emerald-700">
+                <DollarSign className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-900">स्पॉन्सर ₹150 कमीशन भुगतान दर्ज करें</h3>
+              </div>
+              <button
+                onClick={() => setCommissionPayMember(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {(() => {
+              const sponsorObj = members.find(
+                (s) => (s.accId || '').toUpperCase() === (commissionPayMember.sponsorId || '').toUpperCase() || s.mobile === commissionPayMember.sponsorId
+              );
+
+              return (
+                <div className="space-y-3 text-xs">
+                  {/* User & Sponsor Quick Comparison Box */}
+                  <div className="grid grid-cols-2 gap-2 bg-[#f1f2f4] p-3 rounded-lg border border-gray-200">
+                    <div>
+                      <span className="text-[10px] text-slate-500 block font-semibold">नया एक्टिव सदस्य:</span>
+                      <strong className="text-slate-900 text-xs block">{commissionPayMember.fullName}</strong>
+                      <span className="text-[10px] text-slate-600 font-mono-acc">🆔 {commissionPayMember.accId}</span>
+                      <span className="text-[10px] text-emerald-700 font-semibold block">₹249 Paid (UTR: {commissionPayMember.utrNumber})</span>
+                    </div>
+
+                    <div className="border-l border-gray-300 pl-2">
+                      <span className="text-[10px] text-amber-900 block font-bold">हकदार स्पॉन्सर:</span>
+                      <strong className="text-slate-900 text-xs block truncate">{commissionPayMember.sponsorName || sponsorObj?.fullName || 'स्पॉन्सर'}</strong>
+                      <span className="text-[10px] text-[#2874f0] font-mono-acc font-bold">🆔 {commissionPayMember.sponsorId}</span>
+                      <span className="text-[10px] text-slate-600 font-mono block">फोन: {sponsorObj?.mobile || 'N/A'}</span>
+                    </div>
+                  </div>
+
+                  {/* Sponsor Payout Destination */}
+                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-300 space-y-1.5">
+                    <span className="text-[11px] font-bold text-emerald-950 block">
+                      स्पॉन्सर का भुगतान खाता ({sponsorObj?.payoutDetails?.holderRelation || 'Self'} - {sponsorObj?.payoutDetails?.holderName || sponsorObj?.fullName}):
+                    </span>
+                    {sponsorObj?.payoutDetails?.upiId ? (
+                      <div className="flex items-center justify-between bg-white p-2 rounded border border-emerald-200">
+                        <span className="font-mono font-bold text-emerald-800 text-xs">
+                          {sponsorObj.payoutDetails.upiId}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(sponsorObj.payoutDetails?.upiId || '');
+                            alert('स्पॉन्सर UPI ID कॉपी हो गई!');
+                          }}
+                          className="px-2 py-0.5 bg-[#2874f0] text-white text-[10px] font-bold rounded"
+                        >
+                          कॉपी UPI
+                        </button>
+                      </div>
+                    ) : sponsorObj ? (
+                      <div className="flex items-center justify-between bg-white p-2 rounded border border-emerald-200">
+                        <span className="font-mono text-xs font-bold text-slate-800">{sponsorObj.mobile}@upi</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${sponsorObj.mobile}@upi`);
+                            alert('स्पॉन्सर मोबाइल UPI कॉपी हो गया!');
+                          }}
+                          className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded"
+                        >
+                          कॉपी
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {sponsorObj?.payoutDetails?.accountNumber && (
+                      <div className="text-[10px] text-slate-700 bg-white p-1.5 rounded border border-gray-200 font-mono">
+                        बैंक: {sponsorObj.payoutDetails.bankName || 'N/A'} | A/C: {sponsorObj.payoutDetails.accountNumber} | IFSC: {sponsorObj.payoutDetails.ifsc}
+                      </div>
+                    )}
+                  </div>
+
+                  <form onSubmit={handleConfirmCommissionPay} className="space-y-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 mb-1">
+                        कमीशन ट्रांसफर UTR / ट्रांजैक्शन संदर्भ नंबर:
+                      </label>
+                      <input
+                        type="text"
+                        value={commissionUtrInput}
+                        onChange={(e) => setCommissionUtrInput(e.target.value)}
+                        placeholder="उदा. COMM-987654 या बैंक UPI UTR"
+                        className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-[#fb641b]"
+                        required
+                      />
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setCommissionPayMember(null)}
+                        className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-sm border border-gray-200"
+                      >
+                        रद्द करें
+                      </button>
+
+                      <button
+                        type="submit"
+                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-sm shadow-sm flex items-center justify-center gap-1.5"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>₹150 भुगतान चुकता दर्ज करें</span>
+                      </button>
+                    </div>
+
+                    {sponsorObj?.mobile && (
+                      <a
+                        href={`https://api.whatsapp.com/send?phone=91${sponsorObj.mobile}&text=${encodeURIComponent(
+                          `नमस्ते ${sponsorObj.fullName} ji,\nबधाई हो! आपके डायरेक्ट रेफरल ${commissionPayMember.fullName} (${commissionPayMember.accId}) का ₹249 एक्टिवेशन स्वीकार कर लिया गया है।\nआपका ₹150 डायरेक्ट रेफरल कमीशन सफलतापूर्वक जारी कर दिया गया है (Ref: ${commissionUtrInput || 'PAID'})।\nAchievers Club Community (ACC) में आपका धन्यवाद!`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-2 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold rounded-sm flex items-center justify-center gap-1.5 transition shadow-xs mt-1"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>स्पॉन्सर को WhatsApp पर कमिशन रसीद भेजें</span>
+                      </a>
+                    )}
+                  </form>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MEMBER SECURITY & PASSWORD RESET MODAL (Admin Support For Users Who Forgot Security Answer) */}
+      {/* ========================================================================= */}
+      {memberSecurityModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-gray-200 rounded-xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-scaleUp">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2 text-amber-800">
+                <Lock className="w-5 h-5 text-amber-600" />
+                <h3 className="text-sm font-bold text-slate-900">सदस्य सुरक्षा उत्तर व पासवर्ड सहायता</h3>
+              </div>
+              <button
+                onClick={() => setMemberSecurityModal(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {memberSecurityMsg && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-lg flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-semibold">{memberSecurityMsg}</span>
+              </div>
+            )}
+
+            <div className="space-y-3 text-xs">
+              <div className="bg-[#f1f2f4] p-3 rounded-lg border border-gray-200 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-semibold">सदस्य का नाम:</span>
+                  <strong className="text-slate-900">{memberSecurityModal.fullName}</strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-semibold">Unique ACC 🆔:</span>
+                  <span className="font-mono-acc font-black text-[#2874f0]">{memberSecurityModal.accId}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-semibold">पंजीकृत मोबाइल:</span>
+                  <span className="font-mono-acc text-slate-800">{memberSecurityModal.mobile}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-semibold">₹249 UTR:</span>
+                  <span className="font-mono-acc text-emerald-700 font-bold">{memberSecurityModal.utrNumber}</span>
+                </div>
+              </div>
+
+              {/* SECURE REGISTERED ANSWER DISPLAY (ADMIN ONLY) */}
+              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-lg space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase block">
+                  पंजीकृत सुरक्षा प्रश्न (Registered Question):
+                </span>
+                <span className="text-slate-800 font-semibold block text-[11px]">
+                  {memberSecurityModal.securityQuestion || 'आपकी पहली स्कूल या पसंदीदा शहर क्या है?'}
+                </span>
+
+                <span className="text-[10px] font-bold text-slate-500 uppercase block pt-1">
+                  पंजीकृत सुरक्षा उत्तर (Registered Answer):
+                </span>
+                <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded border border-blue-300">
+                  <span className="font-mono font-black text-sm text-[#2874f0]">
+                    {memberSecurityModal.securityAnswer || 'कोई उत्तर सेट नहीं'}
+                  </span>
+                  {memberSecurityModal.securityAnswer && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(memberSecurityModal.securityAnswer || '');
+                        alert('सुरक्षा उत्तर क्लिपबोर्ड पर कॉपी हो गया!');
+                      }}
+                      className="text-xs text-[#2874f0] hover:underline font-bold"
+                    >
+                      कॉपी उत्तर
+                    </button>
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-500 block pt-0.5">
+                  यदि सदस्य सुरक्षा उत्तर भूल गया है, तो आप यह उत्तर उन्हें बता सकते हैं या नीचे से नया पासवर्ड सेट कर सकते हैं।
+                </span>
+              </div>
+
+              {/* ADMIN NEW PASSWORD RESET FORM */}
+              <form onSubmit={handleAdminResetMemberPassword} className="space-y-3 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    नया पासवर्ड सेट करें (Set New Password):
+                  </label>
+                  <input
+                    type="text"
+                    value={memberNewPasswordInput}
+                    onChange={(e) => setMemberNewPasswordInput(e.target.value)}
+                    placeholder="उदा. acc@1234 या 6-अंकों का पिन"
+                    className="w-full bg-white border border-gray-300 rounded-sm px-3 py-2 text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-[#fb641b]"
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setMemberSecurityModal(null)}
+                    className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-sm border border-gray-200"
+                  >
+                    रद्द करें
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-[#fb641b] hover:bg-[#e85a14] text-white text-xs font-bold rounded-sm shadow-sm flex items-center justify-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>पासवर्ड अपडेट करें</span>
+                  </button>
+                </div>
+
+                <a
+                  href={`https://api.whatsapp.com/send?phone=91${memberSecurityModal.mobile}&text=${encodeURIComponent(
+                    `नमस्ते ${memberSecurityModal.fullName} ji,\nAchievers Club Community एडमिन सहायता:\nआपकी ACC 🆔: ${memberSecurityModal.accId}\nआपका लॉगिन पासवर्ड: ${memberNewPasswordInput}\nसुरक्षा उत्तर: ${memberSecurityModal.securityAnswer || 'N/A'}\n\nअब आप www.achieversclub.in पर सीधे लॉगिन कर सकते हैं!`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold rounded-sm flex items-center justify-center gap-1.5 transition shadow-xs mt-1"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>WhatsApp पर छात्र को नया पासवर्ड व 🆔 भेजें</span>
+                </a>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* COMPREHENSIVE SUBMITTED FORM RESPONSE MODAL (PRINTABLE / INSPECTABLE) */}
+      {/* ========================================================================= */}
+      {formResponseModalMember && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-fadeIn overflow-y-auto">
+          <div className="bg-white border border-gray-200 rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl animate-scaleUp text-slate-800">
+            {/* Modal Header */}
+            <div className="sticky top-0 z-10 bg-slate-900 text-white p-4 px-6 rounded-t-2xl flex items-center justify-between border-b border-slate-700">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#ffe500] text-[#2874f0] font-black flex items-center justify-center text-sm shadow-xs">
+                  ACC
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                    <span>विद्यार्थी रजिस्ट्रेशन फॉर्म रिस्पॉन्स शीट</span>
+                    <span className="text-[10px] bg-blue-600/60 text-blue-200 px-2 py-0.5 rounded font-mono font-bold">
+                      {formResponseModalMember.accId}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-300">
+                    छात्र द्वारा सबमिट किया गया मूल आवेदन फॉर्म व ₹249 सत्यापन पत्रक
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded text-xs font-bold flex items-center gap-1 transition"
+                  title="प्रिंट या PDF में सहेजें"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">प्रिंट / PDF</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormResponseModalMember(null)}
+                  className="p-1 hover:bg-white/20 rounded-full text-slate-300 hover:text-white transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Printable Body */}
+            <div className="p-4 sm:p-6 space-y-5 text-xs">
+              {/* Application Top Summary Banner */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative shrink-0">
+                    {formResponseModalMember.avatarUrl ? (
+                      <img
+                        src={formResponseModalMember.avatarUrl}
+                        alt={formResponseModalMember.fullName}
+                        className="w-16 h-16 rounded-full object-cover border-3 border-[#2874f0] shadow-sm"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-blue-200 text-[#2874f0] font-black text-xl flex items-center justify-center border-2 border-blue-300">
+                        {(formResponseModalMember.fullName || 'MB').substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#2874f0] font-bold uppercase tracking-wider block">
+                      OFFICIAL APPLICATION RESPONSE
+                    </span>
+                    <h2 className="text-base sm:text-lg font-black text-slate-900">
+                      {formResponseModalMember.fullName}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="font-mono-acc font-black text-[#2874f0] bg-white px-2 py-0.5 rounded border border-blue-200 text-xs">
+                        ID: {formResponseModalMember.accId}
+                      </span>
+                      <span className="bg-indigo-100 text-indigo-900 font-bold px-2 py-0.5 rounded text-[11px] border border-indigo-200">
+                        {formResponseModalMember.plan} सिस्टम प्लान
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-left sm:text-right shrink-0">
+                  <div className="mb-1">
+                    {formResponseModalMember.status === 'verified' ? (
+                      <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full text-xs border border-emerald-300">
+                        <Check className="w-3.5 h-3.5 text-emerald-600" /> सत्यापित व सक्रिय (Verified)
+                      </span>
+                    ) : formResponseModalMember.status === 'rejected' ? (
+                      <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 font-bold px-3 py-1 rounded-full text-xs border border-red-300">
+                        <X className="w-3.5 h-3.5 text-red-600" /> अस्वीकृत (Rejected)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 font-bold px-3 py-1 rounded-full text-xs border border-amber-300 animate-pulse">
+                        ⏳ सत्यापन लंबित (Pending Review)
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block">
+                    आवेदन तिथि: {formResponseModalMember.paymentDate || formResponseModalMember.createdAt?.split('T')[0] || '08 Oct 2026'}
+                  </span>
+                </div>
+              </div>
+
+              {/* 1. व्यक्तिगत एवं शैक्षणिक विवरण */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2 border-b border-gray-100 pb-2">
+                  <Users className="w-4 h-4 text-[#2874f0]" />
+                  <span>1. व्यक्तिगत एवं शैक्षणिक विवरण (Personal & Education Profile)</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-gray-200">
+                    <span className="text-[10px] text-slate-500 block">पूरा नाम (Full Name):</span>
+                    <strong className="text-slate-900 text-xs block mt-0.5">{formResponseModalMember.fullName}</strong>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-gray-200">
+                    <span className="text-[10px] text-slate-500 block">शैक्षणिक योग्यता / कॉलेज:</span>
+                    <strong className="text-slate-900 text-xs block mt-0.5">{formResponseModalMember.qualification || 'कॉलेज विद्यार्थी'}</strong>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-gray-200">
+                    <span className="text-[10px] text-slate-500 block">चयनित सिस्टम (Chosen Plan):</span>
+                    <strong className="text-[#2874f0] text-xs block mt-0.5">
+                      {formResponseModalMember.plan === 'SWIS'
+                        ? 'SWIS (3.30% मोबाइल रिचार्ज कमीशन)'
+                        : 'TWIS (₹150 डायरेक्ट रेफरल इनकम)'}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. संपर्क एवं आवासीय पता */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2 border-b border-gray-100 pb-2">
+                  <MapPin className="w-4 h-4 text-[#2874f0]" />
+                  <span>2. संपर्क एवं आवासीय पता (Contact & Address Details)</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-gray-200">
+                    <span className="text-[10px] text-slate-500 block">पंजीकृत मोबाइल नंबर:</span>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="font-mono-acc font-bold text-slate-900 text-xs">{formResponseModalMember.mobile}</span>
+                      <div className="flex items-center gap-1.5">
+                        <a
+                          href={`tel:${formResponseModalMember.mobile}`}
+                          className="text-blue-600 hover:text-blue-700"
+                          title="कॉल करें"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                        </a>
+                        <a
+                          href={`https://api.whatsapp.com/send?phone=91${formResponseModalMember.mobile}&text=${encodeURIComponent(
+                            `नमस्ते ${formResponseModalMember.fullName}, मैं Achievers Club Community एडमिन बात कर रहा हूँ। आपके फॉर्म (${formResponseModalMember.accId}) का सत्यापन अपडेट:`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-emerald-600 hover:text-emerald-700"
+                          title="WhatsApp चैट"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-gray-200">
+                    <span className="text-[10px] text-slate-500 block">ईमेल पता (Email):</span>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="text-slate-900 text-xs truncate max-w-[170px]">{formResponseModalMember.email}</span>
+                      <a
+                        href={`mailto:${formResponseModalMember.email}`}
+                        className="text-blue-600 hover:text-blue-700"
+                        title="ईमेल भेजें"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-gray-200">
+                    <span className="text-[10px] text-slate-500 block">व्हाट्सएप नंबर:</span>
+                    <span className="font-mono-acc font-bold text-slate-900 text-xs block mt-0.5">
+                      {formResponseModalMember.whatsapp || formResponseModalMember.mobile}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-gray-200">
+                  <span className="text-[10px] text-slate-500 block">पूरा पता (Full Address):</span>
+                  <p className="text-slate-800 text-xs mt-0.5 font-medium leading-relaxed">
+                    {formResponseModalMember.address || 'आवासीय पता'}, {formResponseModalMember.city}, {formResponseModalMember.state} - पिनकोड: {formResponseModalMember.pincode}
+                  </p>
+                </div>
+              </div>
+
+              {/* 3. ₹249 एक्टिवेशन पेमेंट, UTR नंबर एवं रसीद */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-emerald-600" />
+                    <span>3. ₹249 एक्टिवेशन पेमेंट, UTR व रसीद (Payment Verification)</span>
+                  </h4>
+                  <span className="text-[11px] font-mono-acc font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    ₹249.00 PAID
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-emerald-50/60 p-2.5 rounded-lg border border-emerald-200">
+                    <span className="text-[10px] text-emerald-900 font-bold block">पेमेंट UTR / Ref No.:</span>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <span className="font-mono-acc font-bold text-emerald-800 text-xs">
+                        {formResponseModalMember.utrNumber || 'N/A'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(formResponseModalMember.utrNumber || '');
+                          alert('UTR नंबर कॉपी हो गया!');
+                        }}
+                        className="text-[#2874f0] hover:underline text-[10px] font-bold"
+                      >
+                        कॉपी
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-gray-200">
+                    <span className="text-[10px] text-slate-500 block">भुगतान प्राप्तकर्ता UPI:</span>
+                    <span className="font-mono-acc font-bold text-slate-800 text-xs block mt-0.5">
+                      8877490845@spicepay (Vikas Kumar)
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-gray-200">
+                    <span className="text-[10px] text-slate-500 block">भुगतान तिथि (Payment Date):</span>
+                    <span className="text-slate-800 text-xs block mt-0.5 font-semibold">
+                      {formResponseModalMember.paymentDate || '2026-10-08'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Screenshot Preview */}
+                {formResponseModalMember.paymentScreenshotUrl ? (
+                  <div className="bg-slate-50 p-3 rounded-lg border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={formResponseModalMember.paymentScreenshotUrl}
+                        alt="Payment Slip Preview"
+                        className="w-14 h-18 object-cover rounded border border-gray-300 shadow-xs cursor-pointer shrink-0"
+                        onClick={() => {
+                          setScreenshotModalMember(formResponseModalMember);
+                          setZoomLevel(1);
+                        }}
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 block flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>पेमेंट स्क्रीनशॉट / रसीद संलग्न है</span>
+                        </span>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          छात्र द्वारा अपलोड की गई बैंक/UPI रसीद। क्लिक करके बड़े आकार में देखें।
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScreenshotModalMember(formResponseModalMember);
+                        setZoomLevel(1);
+                      }}
+                      className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#2874f0] border border-blue-200 rounded text-xs font-bold flex items-center gap-1 transition shrink-0"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <span>रसीद ज़ूम करके देखें</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-amber-900 text-xs">
+                    ℹ️ छात्र ने केवल UTR नंबर सबमिट किया है, अलग से स्क्रीनशॉट फाइल संलग्न नहीं की।
+                  </div>
+                )}
+              </div>
+
+              {/* 4. स्पॉन्सरशिप व कमिशन विवरण */}
+              <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-amber-200 pb-2">
+                  <h4 className="text-xs font-bold text-amber-950 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-amber-700" />
+                    <span>4. स्पॉन्सरशिप व ₹150 रेफरल कमिशन (Sponsorship Details)</span>
+                  </h4>
+                  <span className="text-[10px] bg-amber-100 text-amber-900 px-2 py-0.5 rounded border border-amber-300 font-bold">
+                    TWIS रेफरल बोनस
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-white p-2.5 rounded-lg border border-amber-200">
+                    <span className="text-[10px] text-slate-500 block">स्पॉन्सर का नाम:</span>
+                    <strong className="text-slate-900 text-xs block mt-0.5">
+                      {formResponseModalMember.sponsorName || 'कंपनी डायरेक्ट (नो स्पॉन्सर)'}
+                    </strong>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded-lg border border-amber-200">
+                    <span className="text-[10px] text-slate-500 block">स्पॉन्सर ACC 🆔:</span>
+                    <span className="font-mono-acc font-black text-[#2874f0] text-xs block mt-0.5">
+                      {formResponseModalMember.sponsorId || 'DIRECT'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded-lg border border-amber-200">
+                    <span className="text-[10px] text-slate-500 block">रेफरल कमिशन देय:</span>
+                    <span className="font-bold text-emerald-700 text-xs block mt-0.5">
+                      {formResponseModalMember.sponsorId && formResponseModalMember.sponsorId !== 'DIRECT'
+                        ? '₹150 डायरेक्ट बोनस (चुकता: ' + (formResponseModalMember.sponsorCommissionStatus === 'paid' ? 'हाँ' : 'लंबित') + ')'
+                        : 'कंपनी डायरेक्ट (नो कमिशन)'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 5. पंजीकृत पेआउट बैंक / UPI खाता (खुद का या माता-पिता का) */}
+              <div className="bg-emerald-50/50 border border-emerald-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
+                  <h4 className="text-xs font-bold text-emerald-950 flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-emerald-700" />
+                    <span>5. पंजीकृत पेआउट खाता (Registered Payout Account - Self / Parents)</span>
+                  </h4>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded border border-emerald-300 font-bold">
+                    दैनिक कमाई निकासी
+                  </span>
+                </div>
+
+                {formResponseModalMember.payoutDetails ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200">
+                      <span className="text-[10px] text-slate-500 block">खाता धारक व संबंध:</span>
+                      <strong className="text-slate-900 text-xs block mt-0.5">
+                        {formResponseModalMember.payoutDetails.holderName} ({formResponseModalMember.payoutDetails.holderRelation === 'Father'
+                          ? 'पिताजी का खाता'
+                          : formResponseModalMember.payoutDetails.holderRelation === 'Mother'
+                          ? 'माताजी का खाता'
+                          : formResponseModalMember.payoutDetails.holderRelation === 'Guardian'
+                          ? 'अभिभावक का खाता'
+                          : 'खुद का खाता'})
+                      </strong>
+                    </div>
+
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200">
+                      <span className="text-[10px] text-slate-500 block">पंजीकृत UPI ID:</span>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="font-mono-acc font-bold text-emerald-800 text-xs">
+                          {formResponseModalMember.payoutDetails.upiId || 'N/A'}
+                        </span>
+                        {formResponseModalMember.payoutDetails.upiId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(formResponseModalMember.payoutDetails?.upiId || '');
+                              alert('UPI ID कॉपी हो गई!');
+                            }}
+                            className="text-[#2874f0] text-[10px] font-bold hover:underline"
+                          >
+                            कॉपी
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200">
+                      <span className="text-[10px] text-slate-500 block">बैंक विवरण (Bank A/C & IFSC):</span>
+                      <span className="font-mono-acc text-slate-800 text-[11px] block mt-0.5 truncate">
+                        {formResponseModalMember.payoutDetails.accountNumber
+                          ? `${formResponseModalMember.payoutDetails.bankName || 'Bank'} · ${formResponseModalMember.payoutDetails.accountNumber} · ${formResponseModalMember.payoutDetails.ifsc}`
+                          : 'UPI मोड सक्रिय'}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-slate-600 text-xs bg-white p-2.5 rounded-lg border border-emerald-200">
+                    छात्र ने डिफ़ॉल्ट मोबाइल UPI ({formResponseModalMember.mobile}@upi) दर्ज किया है।
+                  </p>
+                )}
+              </div>
+
+              {/* 6. एडमिन सुरक्षा एवं पासवर्ड रीसेट सुविधा */}
+              <div className="bg-slate-50 border border-gray-200 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <div>
+                  <span className="font-bold text-slate-900 block flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>लॉगिन सुरक्षा व पासवर्ड सहायता:</span>
+                  </span>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    यदि छात्र पासवर्ड या सुरक्षा उत्तर भूल जाए, तो एडमिन यहाँ से सीधा नया पासवर्ड दे सकता है।
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMemberSecurityModal(formResponseModalMember);
+                    setMemberNewPasswordInput('acc@' + Math.floor(1000 + Math.random() * 9000));
+                  }}
+                  className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded font-bold text-xs shrink-0 transition"
+                >
+                  पासवर्ड व सुरक्षा रीसेट करें
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Action Bar */}
+            <div className="sticky bottom-0 z-10 bg-slate-50 border-t border-gray-200 p-4 px-6 rounded-b-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const textData = JSON.stringify(formResponseModalMember, null, 2);
+                    navigator.clipboard.writeText(textData);
+                    alert('फॉर्म रिस्पॉन्स का सम्पूर्ण डेटा क्लिपबोर्ड में कॉपी हो गया!');
+                  }}
+                  className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-gray-300 rounded text-xs font-bold flex items-center gap-1.5 transition"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>डेटा कॉपी करें</span>
+                </button>
+
+                <a
+                  href={`https://api.whatsapp.com/send?phone=91${formResponseModalMember.mobile}&text=${encodeURIComponent(
+                    `नमस्ते ${formResponseModalMember.fullName} ji,\nAchievers Club Community (ACC) में आपका स्वागत है!\n\n🆔 आपकी Member 🆔: ${formResponseModalMember.accId}\n💼 सिस्टम प्लान: ${formResponseModalMember.plan}\n💳 UTR Ref: ${formResponseModalMember.utrNumber}\n🟢 स्टेटस: ${formResponseModalMember.status === 'verified' ? 'सत्यापित (VERIFIED ✓)' : 'समीक्षा में'}\n\nऑफिशियल वेबसाइट: www.achieversclub.in`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-2 bg-[#25D366] hover:bg-[#20ba59] text-white rounded text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>WhatsApp पर छात्र को भेजें</span>
+                </a>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                {formResponseModalMember.status !== 'verified' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleApproveMember(formResponseModalMember);
+                      setFormResponseModalMember(null);
+                    }}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>सत्यापित व स्वीकृत करें (Approve)</span>
+                  </button>
+                )}
+
+                {formResponseModalMember.status !== 'rejected' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleOpenRejectModal(formResponseModalMember);
+                      setFormResponseModalMember(null);
+                    }}
+                    className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 rounded text-xs font-bold flex items-center gap-1 transition"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>अस्वीकृत करें (Reject)</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setFormResponseModalMember(null)}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded text-xs font-bold transition"
+                >
+                  बंद करें
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
