@@ -1,4 +1,6 @@
 import { Member } from '../types';
+import { getReferralUrl } from './url';
+import { getMemberTier } from './memberTier';
 
 // Helper to load image
 const loadImage = (src: string): Promise<HTMLImageElement | null> => {
@@ -24,9 +26,7 @@ export async function drawIdCardFront(
   ctx.save();
   ctx.translate(offsetX, offsetY);
 
-  const referralLink = typeof window !== 'undefined'
-    ? `${window.location.origin}/?sponsor=${member.accId}`
-    : `https://accindia.js.org/?sponsor=${member.accId}`;
+  const referralLink = getReferralUrl(member.accId);
 
   // 1. Background gradient - Deep Luxury Slate Navy
   const bgGrad = ctx.createLinearGradient(0, 0, 1200, 750);
@@ -149,6 +149,23 @@ export async function drawIdCardFront(
     ctx.font = '700 12px sans-serif';
     ctx.fillText('OFFICIAL PHOTO', 150, 345);
   }
+  ctx.restore();
+
+  // Draw Official Member Tier Badge under Photo
+  const tierInfo = getMemberTier(member.referralsCount || 0);
+  ctx.save();
+  ctx.fillStyle = tierInfo.colorHex;
+  ctx.beginPath();
+  ctx.roundRect(55, 415, 190, 38, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`★ ${tierInfo.nameEnglish.toUpperCase()}`, 150, 439);
   ctx.restore();
 
   // Details Column

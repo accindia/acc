@@ -74,6 +74,32 @@ export const DEFAULT_SERVICES: AppServiceItem[] = [
     isActive: true,
     createdAt: '2026-08-01',
   },
+  {
+    id: 'srv-free-calculator',
+    title: 'फ्री रिचार्ज बचत कैलकुलेटर',
+    category: 'EXTRA',
+    description: 'PhonePe/Paytm के एक्स्ट्रा चार्ज और ACC के 3.30% कैशबैक की लाइव तुलना करें।',
+    commissionOrEarning: '100% फ्री टूल',
+    badgeText: 'FREE TOOL',
+    iconName: 'Calculator',
+    actionText: 'कैलकुलेट करें',
+    actionLink: 'calculator',
+    isActive: true,
+    createdAt: '2026-08-01',
+  },
+  {
+    id: 'srv-free-promokit',
+    title: 'स्टूडेंट प्रोमोशन & विजिटिंग कार्ड',
+    category: 'COMMUNITY',
+    description: 'कॉलेज ग्रुप्स और WhatsApp स्टेटस के लिए 1-क्लिक रेडी-मेड पोस्टर्स और लिंक्स।',
+    commissionOrEarning: '100% फ्री किट',
+    badgeText: 'VIRAL KIT',
+    iconName: 'Award',
+    actionText: 'प्रोमो हब खोलें',
+    actionLink: 'promotions',
+    isActive: true,
+    createdAt: '2026-08-01',
+  },
 ];
 
 export const DEFAULT_PROMOTIONAL_POSTERS: PromotionalPoster[] = [

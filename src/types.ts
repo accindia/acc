@@ -151,6 +151,7 @@ export type ActiveWindow =
   | 'calculator'
   | 'promotions'
   | 'about'
+  | 'faq'
   | 'privacy'
   | 'disclaimer'
   | 'terms'

@@ -36,6 +36,7 @@ import { FirestoreService } from '../services/firestore';
 import { compressImage } from '../utils/imageCompressor';
 import { UpiQrCode } from './UpiQrCode';
 import { ImageCropperModal, CropShape } from './ImageCropperModal';
+import { CelebrationSuccessAnimation, fireCelebrationConfetti } from './CelebrationSuccessAnimation';
 
 interface RegistrationModalProps {
   onSuccess: (newMember: Member) => void;
@@ -51,6 +52,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
   const [step, setStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdMember, setCreatedMember] = useState<Member | null>(null);
+  const [showCelebrationModal, setShowCelebrationModal] = useState<boolean>(true);
   const [copiedId, setCopiedId] = useState(false);
   const siteConfig: SiteConfig = StorageService.getSiteConfig();
 
@@ -401,17 +403,11 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
       await StorageService.addMemberAsync(newMember);
       StorageService.setCurrentUser(newMember);
       setCreatedMember(newMember);
+      setShowCelebrationModal(true);
       setIsSubmitting(false);
 
-      try {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
-      } catch (err) {
-        // confetti fallback
-      }
+      // Trigger celebratory confetti cannon burst
+      fireCelebrationConfetti('high');
     } catch (error) {
       console.error('Registration submission error:', error);
       setErrorMessage('पंजीकरण सबमिट करने में समस्या आई। कृपया पुनः प्रयास करें।');
@@ -431,6 +427,18 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
   if (createdMember) {
     return (
       <div className="max-w-2xl mx-auto space-y-6 text-center py-4 animate-fadeIn">
+        {/* Celebratory Confetti & Trophy Animation Modal */}
+        <CelebrationSuccessAnimation
+          isOpen={showCelebrationModal}
+          onClose={() => setShowCelebrationModal(false)}
+          type="registration"
+          title="बधाई हो! आपका रजिस्ट्रेशन पूरा हो गया!"
+          subtitle="आपकी Achievers Club कम्युनिटी 🆔 सक्रिय हो चुकी है। अब आप SWIS रिचार्ज बचत व TWIS रेफरल अर्निंग शुरू कर सकते हैं।"
+          memberName={createdMember.fullName}
+          accId={createdMember.accId}
+          duration={5500}
+        />
+
         <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center border-2 border-emerald-300 shadow-sm">
           <CheckCircle2 className="w-10 h-10" />
         </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { getBaseAppUrl, getReferralUrl } from '../utils/url';
 import {
   Share2,
   Download,
@@ -103,9 +104,9 @@ export const PromotionBrandingHub: React.FC<PromotionBrandingHubProps> = ({
   const posterCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Base Website Referral URL
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://accindia.js.org';
+  const baseUrl = getBaseAppUrl();
   const cleanSponsorId = (partnerId || 'ACC249').trim().toUpperCase();
-  const referralUrl = `${baseUrl}/?sponsor=${cleanSponsorId}`;
+  const referralUrl = getReferralUrl(cleanSponsorId);
 
   // Keep state synced if user logs in
   useEffect(() => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
+import { getReferralUrl } from '../utils/url';
 import {
   Smartphone,
   Users,
@@ -56,6 +57,8 @@ import { FirestoreService } from '../services/firestore';
 import { compressImage } from '../utils/imageCompressor';
 import { DigitalIdCard } from './DigitalIdCard';
 import { ImageCropperModal, CropShape } from './ImageCropperModal';
+import { CelebrationSuccessAnimation, fireCelebrationConfetti } from './CelebrationSuccessAnimation';
+import { MemberTierBadge } from './MemberTierBadge';
 
 interface UserDashboardProps {
   currentUser: Member;
@@ -106,6 +109,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ currentUser, onUpd
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSaveSuccess, setProfileSaveSuccess] = useState('');
   const [profileSaveError, setProfileSaveError] = useState('');
+  const [showProfileCelebration, setShowProfileCelebration] = useState<boolean>(false);
 
   // Payout Address State (Self or Parents)
   const [payoutHolderRelation, setPayoutHolderRelation] = useState<'Self' | 'Father' | 'Mother' | 'Guardian'>(
@@ -278,6 +282,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ currentUser, onUpd
       if (updated) {
         onUpdateUser(updated);
         setProfileSaveSuccess('प्रोफाइल फोटो, लिंक, QR, पेआउट बैंक खाता एवं प्राइवेसी सेटिंग्स सफलतापूर्वक अपडेट हो गईं!');
+        setShowProfileCelebration(true);
+        fireCelebrationConfetti('medium');
         setTimeout(() => setProfileSaveSuccess(''), 3500);
       }
     } catch (err) {
@@ -571,7 +577,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
   };
 
   const handleCopyLink = () => {
-    const link = `${window.location.origin}/?sponsor=${currentUser.accId}`;
+    const link = getReferralUrl(currentUser.accId);
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
@@ -584,7 +590,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
   };
 
   const handleShareWhatsApp = () => {
-    const link = `${window.location.origin}/?sponsor=${currentUser.accId}`;
+    const link = getReferralUrl(currentUser.accId);
     const text = encodeURIComponent(
       `नमस्ते! मैंने Achievers Club Community (ACC) जॉइन किया है जहाँ मोबाइल रिचार्ज पर 3.30% फिक्स्ड कमीशन और हर रेफरल पर ₹150 डायरेक्ट इनकम मिलती है।\n\nमेरी Sponsor ID: ${currentUser.accId}\nजॉइन करने का लिंक:\n${link}\n\nStart Young, Retire Young! 🔥`
     );
@@ -966,6 +972,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
               <span className="text-[10px] sm:text-[11px] font-bold text-emerald-300 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> {currentUser.plan} Plan
               </span>
+              <span className="text-blue-300">·</span>
+              <MemberTierBadge referralsCount={currentUser.referralsCount || 0} size="sm" />
             </div>
           </div>
         </div>
@@ -1062,6 +1070,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
           </span>
         </div>
       </div>
+
+      {/* MEMBER TIER BADGE & PROGRESSION HUB */}
+      <MemberTierBadge referralsCount={currentUser.referralsCount || 0} showDetails={true} />
 
       {/* Tabs Navigation */}
       <div className="flex bg-white border border-gray-200 rounded-xl p-1 gap-1 overflow-x-auto no-scrollbar shadow-xs">
@@ -1492,7 +1503,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
             <div className="mt-5 pt-4 border-t border-blue-400/30 flex flex-col sm:flex-row items-center gap-3">
               <div className="w-full bg-white text-slate-800 border border-gray-200 rounded-sm px-3 py-2 flex items-center justify-between text-xs">
                 <span className="text-slate-600 truncate mr-2 font-mono-acc">
-                  {window.location.origin}/?sponsor={currentUser.accId}
+                  {getReferralUrl(currentUser.accId)}
                 </span>
                 <button
                   onClick={handleCopyLink}
@@ -3442,7 +3453,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
                   <button
                     type="button"
                     onClick={() => {
-                      const msg = `नमस्ते भाई! मैं कॉलेज के साथ अपने फोन से 15-20 मिनट काम करके अपनी पॉकेट मनी कमा रहा हूँ। PhonePe/GPay के एक्स्ट्रा चार्ज से बचकर रिचार्ज पर 3.30% कमीशन मिलता है और हर दोस्त को जोड़ने पर सीधा ₹150 बैंक में आता है। तू भी देख ले: ${window.location.origin}/?sponsor=${currentUser.accId} (Sponsor ID: ${currentUser.accId})`;
+                      const msg = `नमस्ते भाई! मैं कॉलेज के साथ अपने फोन से 15-20 मिनट काम करके अपनी पॉकेट मनी कमा रहा हूँ। PhonePe/GPay के एक्स्ट्रा चार्ज से बचकर रिचार्ज पर 3.30% कमीशन मिलता है और हर दोस्त को जोड़ने पर सीधा ₹150 बैंक में आता है। तू भी देख ले: ${getReferralUrl(currentUser.accId)} (Sponsor ID: ${currentUser.accId})`;
                       navigator.clipboard.writeText(msg);
                       setCopiedScriptId('script1');
                       setTimeout(() => setCopiedScriptId(null), 2500);
@@ -3453,8 +3464,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
                     <span>{copiedScriptId === 'script1' ? 'कॉपी हो गया ✓' : 'कॉपी करें'}</span>
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-700 leading-relaxed bg-white/80 p-2 rounded border border-blue-100 font-medium">
-                  "नमस्ते भाई! मैं कॉलेज के साथ अपने फोन से 15-20 मिनट काम करके अपनी पॉकेट मनी कमा रहा हूँ। PhonePe/GPay के एक्स्ट्रा चार्ज से बचकर रिचार्ज पर 3.30% कमीशन मिलता है और हर दोस्त को जोड़ने पर सीधा ₹150 बैंक में आता है। तू भी देख ले: {window.location.origin}/?sponsor={currentUser.accId} (Sponsor ID: {currentUser.accId})"
+                <p className="text-[11px] text-slate-700 leading-relaxed bg-white/80 p-2 rounded border border-blue-100 font-medium font-mono-acc">
+                  "नमस्ते भाई! मैं कॉलेज के साथ अपने फोन से 15-20 मिनट काम करके अपनी पॉकेट मनी कमा रहा हूँ। PhonePe/GPay के एक्स्ट्रा चार्ज से बचकर रिचार्ज पर 3.30% कमीशन मिलता है और हर दोस्त को जोड़ने पर सीधा ₹150 बैंक में आता है। तू भी देख ले: {getReferralUrl(currentUser.accId)} (Sponsor ID: {currentUser.accId})"
                 </p>
               </div>
 
@@ -3465,7 +3476,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
                   <button
                     type="button"
                     onClick={() => {
-                      const msg = `नमस्ते! अगर आप अपने घर के Jio, Airtel, Vi या BSNL का रिचार्ज कराते हैं, तो PhonePe या GPay के ₹2-₹3 एक्स्ट्रा चार्ज मत दीजिए। ACC पर सीधा 3.30% कैशबैक मिलता है। मुझसे करवाएं या खुद अपनी ID बना लें: ${window.location.origin}/?sponsor=${currentUser.accId}`;
+                      const msg = `नमस्ते! अगर आप अपने घर के Jio, Airtel, Vi या BSNL का रिचार्ज कराते हैं, तो PhonePe या GPay के ₹2-₹3 एक्स्ट्रा चार्ज मत दीजिए। ACC पर सीधा 3.30% कैशबैक मिलता है। मुझसे करवाएं या खुद अपनी ID बना लें: ${getReferralUrl(currentUser.accId)}`;
                       navigator.clipboard.writeText(msg);
                       setCopiedScriptId('script2');
                       setTimeout(() => setCopiedScriptId(null), 2500);
@@ -3476,8 +3487,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
                     <span>{copiedScriptId === 'script2' ? 'कॉपी हो गया ✓' : 'कॉपी करें'}</span>
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-700 leading-relaxed bg-white/80 p-2 rounded border border-emerald-100 font-medium">
-                  "नमस्ते! अगर आप अपने घर के Jio, Airtel, Vi या BSNL का रिचार्ज कराते हैं, तो PhonePe या GPay के ₹2-₹3 एक्स्ट्रा चार्ज मत दीजिए। ACC पर सीधा 3.30% कैशबैक मिलता है। मुझसे करवाएं या खुद अपनी ID बना लें: {window.location.origin}/?sponsor={currentUser.accId}"
+                <p className="text-[11px] text-slate-700 leading-relaxed bg-white/80 p-2 rounded border border-emerald-100 font-medium font-mono-acc">
+                  "नमस्ते! अगर आप अपने घर के Jio, Airtel, Vi या BSNL का रिचार्ज कराते हैं, तो PhonePe या GPay के ₹2-₹3 एक्स्ट्रा चार्ज मत दीजिए। ACC पर सीधा 3.30% कैशबैक मिलता है। मुझसे करवाएं या खुद अपनी ID बना लें: {getReferralUrl(currentUser.accId)}"
                 </p>
               </div>
             </div>
@@ -3555,6 +3566,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
           </div>
         </div>
       )}
+
+      {/* Profile Update Celebratory Success Animation Modal */}
+      <CelebrationSuccessAnimation
+        isOpen={showProfileCelebration}
+        onClose={() => setShowProfileCelebration(false)}
+        type="profile"
+        title="प्रोफाइल सफलतापूर्वक अपडेट हो गई!"
+        subtitle="आपकी फोटो, प्राइवेसी सेटिंग्स और बैंक पेआउट विवरण सुरक्षित रूप से सेव कर दिए गए हैं।"
+        memberName={currentUser.fullName}
+        accId={currentUser.accId}
+        duration={4200}
+      />
     </div>
   );
 };

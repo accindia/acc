@@ -25,10 +25,14 @@ import {
   Gift,
   Lock,
   LayoutDashboard,
+  HelpCircle,
 } from 'lucide-react';
 import { ActiveWindow, Member, SiteConfig, AppServiceItem, PromotionalPoster } from '../types';
 import { StorageService, subscribeToSync } from '../services/storage';
 import { FirestoreService } from '../services/firestore';
+import { StudentFreeServicesHub } from './StudentFreeServicesHub';
+import { Testimonials } from './Testimonials';
+import { TopAchieversLeaderboard } from './TopAchieversLeaderboard';
 
 interface HomeViewProps {
   onNavigate: (view: ActiveWindow) => void;
@@ -480,6 +484,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
       </div>
 
+      {/* STUDENT FREE SERVICES & PRODUCTIVITY HUB */}
+      <StudentFreeServicesHub
+        currentUser={currentUser}
+        onGoToRegister={() => onNavigate('register')}
+        onGoToDashboard={() => onNavigate('dashboard')}
+        onGoToIdCard={() => onNavigate(currentUser ? 'idcard' : 'login')}
+      />
+
       {/* 3 Step Student Getting Started Guide - Clean White Grid */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 sm:p-8 space-y-6 shadow-sm">
         <div className="text-center max-w-xl mx-auto space-y-1">
@@ -644,6 +656,44 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
       </div>
 
+      {/* TOP ACHIEVERS LEADERBOARD - GAMIFIED RANKINGS */}
+      <TopAchieversLeaderboard
+        currentUser={currentUser}
+        onGoToRegister={() => onNavigate('register')}
+        onGoToDashboard={() => onNavigate('dashboard')}
+      />
+
+      {/* REAL STUDENT SUCCESS STORIES & VERIFIED PAYOUT PROOFS */}
+      <Testimonials
+        onGoToRegister={() => onNavigate('register')}
+        onGoToVideo={() => onNavigate('video')}
+      />
+
+      {/* FAQ Quick Teaser Showcase - Clean Student Interactive Box */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xs">
+        <div className="space-y-2 text-center md:text-left">
+          <div className="inline-flex items-center gap-1.5 text-xs text-[#2874f0] font-bold bg-white px-2.5 py-1 rounded-md border border-blue-200 shadow-xs">
+            <HelpCircle className="w-3.5 h-3.5 text-amber-500" />
+            <span>ACC अक्सर पूछे जाने वाले सवाल (FAQ & Helpdesk)</span>
+          </div>
+          <h3 className="text-xl sm:text-2xl font-black font-display text-slate-900">
+            क्या आपके मन में कोई सवाल या शंका है?
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-600 max-w-xl leading-relaxed">
+            SWIS 3.30% रिचार्ज कमीशन, TWIS ₹150 रेफरल, ₹249 वन-टाइम फीस, बैंक विथड्रॉल और कानूनी सुरक्षा से जुड़े सभी 20+ सवालों के सीधे जवाब यहाँ पढ़ें।
+          </p>
+        </div>
+
+        <button
+          onClick={() => onNavigate('faq')}
+          className="px-6 py-3.5 bg-[#2874f0] hover:bg-blue-600 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md flex items-center gap-2 shrink-0 transition cursor-pointer"
+        >
+          <HelpCircle className="w-4 h-4 text-amber-300" />
+          <span>सभी सवाल-जवाब देखें (Open FAQ)</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+
       {/* Video Preview Teaser Box */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
         <div className="space-y-1.5">
@@ -685,6 +735,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs">
+            <button type="button" onClick={() => onNavigate('faq')} className="text-amber-300 font-bold hover:underline transition cursor-pointer">सवाल-जवाब (FAQ)</button>
+            <span className="text-slate-600">·</span>
             <button type="button" onClick={() => onNavigate('privacy')} className="hover:text-white transition cursor-pointer">गोपनीयता नीति</button>
             <span className="text-slate-600">·</span>
             <button type="button" onClick={() => onNavigate('disclaimer')} className="hover:text-white transition cursor-pointer">अस्वीकरण</button>

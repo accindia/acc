@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { getReferralUrl } from '../utils/url';
 import {
   ShieldCheck,
   Award,
@@ -28,6 +29,7 @@ import {
 import { Member, PrivacySettings, SiteConfig } from '../types';
 import { StorageService } from '../services/storage';
 import { FirestoreService } from '../services/firestore';
+import { MemberTierBadge } from './MemberTierBadge';
 import {
   downloadPremiumIdCard,
   downloadPremiumIdCardBack,
@@ -112,9 +114,7 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
     ? `${member.mobile.slice(0, 2)}••••••${member.mobile.slice(-2)}`
     : '98••••••10';
 
-  const referralLink = typeof window !== 'undefined'
-    ? `${window.location.origin}/?sponsor=${member.accId}`
-    : `https://accindia.js.org/?sponsor=${member.accId}`;
+  const referralLink = getReferralUrl(member.accId);
 
   // Live scannable QR Code URL for the member's referral link
   const referralQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(referralLink)}`;
@@ -525,13 +525,18 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
                 <div className="absolute -bottom-1 -right-1 bg-amber-500 text-slate-950 p-1 rounded-full shadow">
                   <ShieldCheck className="w-3 h-3" />
                 </div>
+                <div className="mt-1.5 flex justify-center">
+                  <MemberTierBadge referralsCount={member.referralsCount || 0} size="sm" />
+                </div>
               </div>
 
               {/* Core Member Details */}
               <div className="min-w-0 flex-1">
-                <span className="text-[9px] uppercase tracking-wider text-slate-400 block font-medium">
-                  {isOwnCard ? 'Authorized Member Name' : 'Official Sponsor Name'}
-                </span>
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-400 block font-medium">
+                    {isOwnCard ? 'Authorized Member Name' : 'Official Sponsor Name'}
+                  </span>
+                </div>
                 <h3 className="text-sm sm:text-base font-bold text-white tracking-wide truncate">
                   {member.fullName}
                 </h3>

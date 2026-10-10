@@ -428,8 +428,9 @@ export default function App() {
           </WindowFrame>
         )}
 
-        {/* VIEW: LEGAL PAGES (About, Privacy, Disclaimer, Terms, Contact) */}
+        {/* VIEW: LEGAL & FAQ PAGES (About, FAQ, Privacy, Disclaimer, Terms, Contact) */}
         {(activeWindow === 'about' ||
+          activeWindow === 'faq' ||
           activeWindow === 'privacy' ||
           activeWindow === 'disclaimer' ||
           activeWindow === 'terms' ||
@@ -439,6 +440,8 @@ export default function App() {
             title={
               activeWindow === 'about'
                 ? 'हमारे बारे में (About Achievers Club Community)'
+                : activeWindow === 'faq'
+                ? 'सवाल-जवाब एवं हेल्पडेस्क (FAQ & Questions)'
                 : activeWindow === 'terms'
                 ? 'नियम एवं शर्तें (Terms & Conditions)'
                 : activeWindow === 'privacy'
@@ -450,6 +453,8 @@ export default function App() {
             subtitle={
               activeWindow === 'about'
                 ? 'ACC कम्युनिटी विजन, मिशन और युवाओं के लिए जीरो-इन्वेस्टमेंट मॉडल'
+                : activeWindow === 'faq'
+                ? 'SWIS रिचार्ज, TWIS रेफरल, ₹249 एक्टिवेशन और कमीशन विथड्रॉल के जवाब'
                 : activeWindow === 'terms'
                 ? 'सदस्यता दिशानिर्देश, 3.30% रिचार्ज कमीशन व ₹150 रेफरल नियम'
                 : activeWindow === 'privacy'
@@ -461,6 +466,8 @@ export default function App() {
             icon={
               activeWindow === 'about' ? (
                 <Building2 className="w-4 h-4 text-amber-400" />
+              ) : activeWindow === 'faq' ? (
+                <HelpCircle className="w-4 h-4 text-amber-300" />
               ) : activeWindow === 'terms' ? (
                 <FileCheck className="w-4 h-4 text-emerald-400" />
               ) : activeWindow === 'privacy' ? (
@@ -569,6 +576,16 @@ export default function App() {
           <div className="space-y-2">
             <h4 className="text-white font-bold text-xs uppercase tracking-wider text-slate-400">नीति एवं सहायता</h4>
             <ul className="space-y-1.5 text-slate-400">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => handleNavigateWithScroll('faq')}
+                  className="hover:text-amber-300 font-semibold transition cursor-pointer text-left block w-full py-0.5 flex items-center gap-1.5"
+                >
+                  <HelpCircle className="w-3.5 h-3.5 text-amber-300" />
+                  <span>सवाल-जवाब (FAQ Helpdesk)</span>
+                </button>
+              </li>
               <li>
                 <button
                   type="button"
