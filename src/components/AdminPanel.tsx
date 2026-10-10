@@ -96,6 +96,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefresh }) => {
 
   // Announcement Marquee
   const [marqueeInput, setMarqueeInput] = useState(siteConfig.announcementMarquee || '');
+  const [domainConfigCopied, setDomainConfigCopied] = useState<boolean>(false);
 
   // Add/Edit Service Modal State
   const [showServiceModal, setShowServiceModal] = useState<boolean>(false);
@@ -2046,8 +2047,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onRefresh }) => {
                 <div className="font-bold text-slate-900 text-xs">🚀 3-स्टेप पब्लिश गाइड (js.org पर फ्री लिंक लाइव करने के लिए):</div>
                 <div><strong>1. GitHub Repository:</strong> अपने कोड को GitHub पर पुश करें और <em>Settings &rarr; Pages</em> में <strong>Custom domain</strong> में <code className="font-mono-acc bg-gray-100 px-1 rounded text-blue-600">accindia.js.org</code> दर्ज करें।</div>
                 <div><strong>2. JS.ORG Pull Request:</strong> <a href="https://github.com/js-org/js.org" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">github.com/js-org/js.org</a> को Fork करें और <code className="font-mono-acc bg-gray-100 px-1 rounded">cnames_active.js</code> में यह पंक्ति जोड़ें:</div>
-                <div className="bg-slate-900 text-emerald-400 p-1.5 rounded font-mono text-[10px] overflow-x-auto select-all">
-                  &quot;accindia&quot;: &quot;&lt;your-github-username&gt;.github.io/&lt;repo-name&gt;&quot;,
+                <div className="bg-slate-900 text-emerald-400 p-2 rounded font-mono text-xs overflow-x-auto select-all flex items-center justify-between gap-2">
+                  <span>&quot;accindia&quot;: &quot;accindia.github.io/acc&quot;,</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText('"accindia": "accindia.github.io/acc",');
+                      setDomainConfigCopied(true);
+                      setTimeout(() => setDomainConfigCopied(false), 2500);
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded font-sans cursor-pointer whitespace-nowrap"
+                  >
+                    {domainConfigCopied ? 'Copied ✓' : 'Copy'}
+                  </button>
                 </div>
                 <div><strong>3. Automatic Activation:</strong> PR मर्ज होते ही <strong>https://accindia.js.org</strong> फ्री SSL के साथ हमेशा के लिए एक्टिव हो जाएगा!</div>
               </div>
