@@ -50,6 +50,8 @@ import {
   Eye,
   X,
   Calculator,
+  Bell,
+  Trophy,
 } from 'lucide-react';
 import { Member, PrivacySettings, WithdrawalRequest, ReferralRecord } from '../types';
 import { StorageService } from '../services/storage';
@@ -59,6 +61,11 @@ import { DigitalIdCard } from './DigitalIdCard';
 import { ImageCropperModal, CropShape } from './ImageCropperModal';
 import { CelebrationSuccessAnimation, fireCelebrationConfetti } from './CelebrationSuccessAnimation';
 import { MemberTierBadge } from './MemberTierBadge';
+import { ActivityFeed } from './ActivityFeed';
+import { ReferralGrowthChart } from './ReferralGrowthChart';
+import { MemberRankings } from './MemberRankings';
+import { GrowthForecast } from './GrowthForecast';
+import { TopPerformersLeaderboard } from './TopPerformersLeaderboard';
 
 interface UserDashboardProps {
   currentUser: Member;
@@ -67,7 +74,7 @@ interface UserDashboardProps {
 }
 
 export const UserDashboard: React.FC<UserDashboardProps> = ({ currentUser, onUpdateUser, onNavigateToPromotions }) => {
-  const [activeTab, setActiveTab] = useState<'applink' | 'twis' | 'swis' | 'idcard' | 'kit' | 'courses' | 'profile'>('applink');
+  const [activeTab, setActiveTab] = useState<'applink' | 'growth' | 'activity' | 'rankings' | 'twis' | 'swis' | 'idcard' | 'kit' | 'courses' | 'profile'>('applink');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
@@ -1089,6 +1096,43 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
         </button>
 
         <button
+          onClick={() => setActiveTab('growth')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold whitespace-nowrap rounded-lg transition relative ${
+            activeTab === 'growth'
+              ? 'bg-blue-50 text-[#2874f0] border border-blue-200 shadow-xs'
+              : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4 text-emerald-600" />
+          <span>📈 30D रेफरल ग्रोथ चार्ट</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('activity')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold whitespace-nowrap rounded-lg transition relative ${
+            activeTab === 'activity'
+              ? 'bg-blue-50 text-[#2874f0] border border-blue-200 shadow-xs'
+              : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <Bell className="w-4 h-4 text-amber-500 animate-wiggle" />
+          <span>⚡ लाइव एक्टिविटी व अलर्ट्स</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+        </button>
+
+        <button
+          onClick={() => setActiveTab('rankings')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold whitespace-nowrap rounded-lg transition relative ${
+            activeTab === 'rankings'
+              ? 'bg-amber-50 text-amber-900 border border-amber-300 shadow-xs'
+              : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <Trophy className="w-4 h-4 text-amber-500" />
+          <span>🏆 शीर्ष परफॉर्मर्स लीडरबोर्ड</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('kit')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold whitespace-nowrap rounded-lg transition ${
             activeTab === 'kit'
@@ -1293,6 +1337,68 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
               </div>
             </div>
           </div>
+
+          {/* 30-Day Referral Growth Chart inside Overview */}
+          <div className="lg:col-span-12">
+            <ReferralGrowthChart currentUser={currentUser} />
+          </div>
+
+          {/* Real-Time Activity Feed Widget inside Overview */}
+          <div className="lg:col-span-12">
+            <ActivityFeed
+              currentUser={currentUser}
+              onNavigateToTwis={() => setActiveTab('twis')}
+              onNavigateToSwis={() => setActiveTab('swis')}
+              onOpenWithdrawModal={() => setShowWithdrawModal(true)}
+              compact={false}
+            />
+          </div>
+
+          {/* Top Performers Leaderboard Widget inside Overview */}
+          <div className="lg:col-span-12">
+            <TopPerformersLeaderboard
+              currentUser={currentUser}
+              onNavigateToTwis={() => setActiveTab('twis')}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* DEDICATED TAB: 30-Day Referral Growth Analytics & Future Forecast */}
+      {activeTab === 'growth' && (
+        <div className="space-y-6">
+          <GrowthForecast
+            currentUser={currentUser}
+            onNavigateToTwis={() => setActiveTab('twis')}
+          />
+          <ReferralGrowthChart currentUser={currentUser} />
+        </div>
+      )}
+
+      {/* DEDICATED TAB: Real-Time Activity Feed & Alerts */}
+      {activeTab === 'activity' && (
+        <div className="space-y-4">
+          <ActivityFeed
+            currentUser={currentUser}
+            onNavigateToTwis={() => setActiveTab('twis')}
+            onNavigateToSwis={() => setActiveTab('swis')}
+            onOpenWithdrawModal={() => setShowWithdrawModal(true)}
+            compact={false}
+          />
+        </div>
+      )}
+
+      {/* DEDICATED TAB: Top Performers Leaderboard & Member Rankings */}
+      {activeTab === 'rankings' && (
+        <div className="space-y-6">
+          <TopPerformersLeaderboard
+            currentUser={currentUser}
+            onNavigateToTwis={() => setActiveTab('twis')}
+          />
+          <MemberRankings
+            currentUser={currentUser}
+            onNavigateToTwis={() => setActiveTab('twis')}
+          />
         </div>
       )}
 
@@ -1523,6 +1629,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
             </div>
           </div>
 
+          {/* VISUAL 30-DAY REFERRAL GROWTH ANALYTICS CHART & FUTURE FORECAST */}
+          <GrowthForecast
+            currentUser={currentUser}
+            onNavigateToTwis={() => setActiveTab('twis')}
+          />
+          <ReferralGrowthChart currentUser={currentUser} />
+
           {/* Real Team Members List - Clean White Card */}
           <div className="bg-white border border-gray-200 rounded-xl p-5 sm:p-6 space-y-4 shadow-xs">
             <h4 className="text-sm font-bold text-slate-900 flex items-center justify-between border-b border-gray-100 pb-3">
@@ -1566,6 +1679,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
               </div>
             )}
           </div>
+
+          {/* REAL-TIME TOP PERFORMERS LEADERBOARD & MEMBER RANKINGS */}
+          <TopPerformersLeaderboard
+            currentUser={currentUser}
+            onNavigateToTwis={() => setActiveTab('twis')}
+          />
+          <MemberRankings currentUser={currentUser} />
         </div>
       )}
 

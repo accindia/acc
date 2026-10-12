@@ -139,6 +139,30 @@ export interface CourseLesson {
   isUnlocked: boolean;
 }
 
+export type ActivityType = 'team_signup' | 'commission_credit' | 'announcement';
+
+export interface ActivityEvent {
+  id: string;
+  type: ActivityType;
+  title: string;
+  titleHi?: string;
+  description: string;
+  descriptionHi?: string;
+  timestamp: string;
+  amount?: number;
+  read?: boolean;
+  isPersonal?: boolean;
+  meta?: {
+    memberName?: string;
+    memberAccId?: string;
+    mobile?: string;
+    plan?: string;
+    txType?: 'TWIS' | 'SWIS';
+    badge?: string;
+    utr?: string;
+  };
+}
+
 export type ActiveWindow = 
   | 'home'
   | 'video'

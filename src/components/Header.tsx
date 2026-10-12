@@ -20,10 +20,12 @@ import {
   User,
   Megaphone,
   HelpCircle,
+  Globe,
 } from 'lucide-react';
 import { ActiveWindow, Member, SiteConfig } from '../types';
 import { StorageService, subscribeToSync } from '../services/storage';
 import { FirestoreService } from '../services/firestore';
+import { useLanguage } from '../context/LanguageContext';
 
 interface HeaderProps {
   activeWindow: ActiveWindow;
@@ -42,6 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
   referralSponsor,
   onNavigateToIdCard,
 }) => {
+  const { language, setLanguage, toggleLanguage, t } = useLanguage();
   const [currentTime, setCurrentTime] = useState<string>('');
   const [currentDate, setCurrentDate] = useState<string>('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -153,14 +156,14 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const navItems = [
-    { id: 'home' as ActiveWindow, label: 'होम', icon: <Sparkles className="w-3.5 h-3.5 text-yellow-300" /> },
-    { id: 'video' as ActiveWindow, label: 'ट्रेनिंग वीडियो', icon: <Video className="w-3.5 h-3.5 text-rose-500" /> },
-    { id: 'calculator' as ActiveWindow, label: 'पॉकेट मनी कैलकुलेटर', icon: <Calculator className="w-3.5 h-3.5 text-emerald-600" /> },
+    { id: 'home' as ActiveWindow, label: t('nav.home', 'होम'), icon: <Sparkles className="w-3.5 h-3.5 text-yellow-300" /> },
+    { id: 'video' as ActiveWindow, label: t('nav.video', 'ट्रेनिंग वीडियो'), icon: <Video className="w-3.5 h-3.5 text-rose-500" /> },
+    { id: 'calculator' as ActiveWindow, label: t('nav.calculator', 'पॉकेट मनी कैलकुलेटर'), icon: <Calculator className="w-3.5 h-3.5 text-emerald-600" /> },
     ...(!currentUser
       ? [
           {
             id: 'register' as ActiveWindow,
-            label: `रजिस्ट्रेशन (₹${siteConfig.activationFee || 249})`,
+            label: language === 'en' ? `Registration (₹${siteConfig.activationFee || 249})` : `रजिस्ट्रेशन (₹${siteConfig.activationFee || 249})`,
             icon: <Sparkles className="w-3.5 h-3.5 text-amber-500" />,
           },
         ]
@@ -168,26 +171,26 @@ export const Header: React.FC<HeaderProps> = ({
     {
       id: 'idcard' as ActiveWindow,
       label: currentUser
-        ? 'मेरा डिजिटल ID कार्ड'
+        ? t('nav.my_idcard', 'मेरा डिजिटल ID कार्ड')
         : referralSponsor
-        ? 'स्पॉन्सर डिजिटल ID कार्ड'
-        : 'डिजिटल ID कार्ड',
+        ? (language === 'en' ? 'Sponsor Digital ID' : 'स्पॉन्सर डिजिटल ID कार्ड')
+        : t('nav.idcard', 'डिजिटल ID कार्ड'),
       icon: <CreditCard className="w-3.5 h-3.5 text-cyan-600" />,
     },
     {
       id: 'dashboard' as ActiveWindow,
-      label: currentUser ? 'मेरा डैशबोर्ड' : 'विद्यार्थी डैशबोर्ड',
+      label: currentUser ? t('nav.my_dashboard', 'मेरा डैशबोर्ड') : t('nav.dashboard', 'विद्यार्थी डैशबोर्ड'),
       icon: <LayoutDashboard className="w-3.5 h-3.5 text-[#2874f0]" />,
     },
     {
       id: 'promotions' as ActiveWindow,
-      label: 'प्रमोशन & विजिटिंग कार्ड',
+      label: t('nav.promotions', 'प्रमोशन & विजिटिंग कार्ड'),
       icon: <Megaphone className="w-3.5 h-3.5 text-amber-300" />,
     },
-    { id: 'admin' as ActiveWindow, label: 'एडमिन पैनल', icon: <ShieldCheck className="w-3.5 h-3.5 text-red-500" /> },
-    { id: 'faq' as ActiveWindow, label: 'FAQ सवाल-जवाब', icon: <HelpCircle className="w-3.5 h-3.5 text-amber-500" /> },
-    { id: 'about' as ActiveWindow, label: 'हमारे बारे में', icon: <Award className="w-3.5 h-3.5 text-blue-500" /> },
-    { id: 'contact' as ActiveWindow, label: 'सपोर्ट', icon: <Phone className="w-3.5 h-3.5 text-green-600" /> },
+    { id: 'admin' as ActiveWindow, label: t('nav.admin', 'एडमिन पैनल'), icon: <ShieldCheck className="w-3.5 h-3.5 text-red-500" /> },
+    { id: 'faq' as ActiveWindow, label: t('nav.faq', 'FAQ सवाल-जवाब'), icon: <HelpCircle className="w-3.5 h-3.5 text-amber-500" /> },
+    { id: 'about' as ActiveWindow, label: t('nav.about', 'हमारे बारे में'), icon: <Award className="w-3.5 h-3.5 text-blue-500" /> },
+    { id: 'contact' as ActiveWindow, label: t('nav.contact', 'सपोर्ट'), icon: <Phone className="w-3.5 h-3.5 text-green-600" /> },
   ];
 
   const cleanPhone = (siteConfig.helplinePhone || '+91 8877490845').replace(/[^0-9]/g, '');
@@ -331,6 +334,17 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
 
+            {/* Language Switcher (Hindi / English Toggle) */}
+            <button
+              onClick={toggleLanguage}
+              className="flex items-center gap-1 text-[11px] sm:text-xs font-bold px-2 py-1 sm:py-1.5 rounded bg-[#1c52b8] hover:bg-[#16449c] active:bg-[#10357d] text-white border border-blue-300/40 transition shadow-xs shrink-0 cursor-pointer"
+              title={language === 'hi' ? 'Switch to English' : 'हिंदी में बदलें'}
+              aria-label="Toggle language"
+            >
+              <Globe className="w-3.5 h-3.5 text-[#ffe500]" />
+              <span className="font-bold">{language === 'hi' ? 'EN' : 'हिन्दी'}</span>
+            </button>
+
             {/* Mobile Menu Toggle Button (ALWAYS INSIDE VIEWPORT & VISIBLE) */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -424,6 +438,34 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
           )}
+
+          {/* Mobile Language Switcher */}
+          <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+              <Globe className="w-3.5 h-3.5 text-[#2874f0]" />
+              <span>{language === 'hi' ? 'भाषा (Language)' : 'Language (भाषा)'}</span>
+            </div>
+            <div className="flex items-center gap-1 bg-white p-0.5 rounded border border-gray-300">
+              <button
+                type="button"
+                onClick={() => setLanguage('hi')}
+                className={`px-2.5 py-1 text-xs font-bold rounded transition ${
+                  language === 'hi' ? 'bg-[#2874f0] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                हिन्दी
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage('en')}
+                className={`px-2.5 py-1 text-xs font-bold rounded transition ${
+                  language === 'en' ? 'bg-[#2874f0] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                English
+              </button>
+            </div>
+          </div>
 
           {/* Mobile Clock & Status */}
           <div className="bg-slate-50 p-2.5 rounded-lg border border-gray-200 flex items-center justify-between text-xs">
